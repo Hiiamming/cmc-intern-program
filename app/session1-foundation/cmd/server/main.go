@@ -18,15 +18,18 @@ func main() {
 	// Register routes
 	// Go 1.22+ supports method in pattern: "GET /health"
 	http.HandleFunc("GET /health", healthCheckHandler)
+	http.HandleFunc("GET /hello/minh", helloMinhHandler)
 
 	// Start server
 	log.Println("🚀 Server starting on http://localhost:8080")
 	log.Println("📍 Health check: http://localhost:8080/health")
+	log.Println("📍 Hello Minh: http://localhost:8080/hello/minh")
 	log.Println("Press Ctrl+C to stop")
 
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
+
 }
 
 // healthCheckHandler handles GET /health endpoint
@@ -50,6 +53,29 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Log the request
 	log.Printf("Health check requested from %s", r.RemoteAddr)
+}
+
+// helloMinhHandler handles GET /hello/minh endpoint
+func helloMinhHandler(w http.ResponseWriter, r *http.Request) {
+	// Set response header to JSON
+	w.Header().Set("Content-Type", "application/json")
+
+	// Create response
+	response := HealthResponse{
+		Status:    "ok",
+		Message:   "Hello, Minh!",
+		Timestamp: time.Now(),
+	}
+
+	// Encode and send response
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// If encoding fails, return 500
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+
+	// Log the request
+	log.Printf("Hello Minh requested from %s", r.RemoteAddr)
 }
 
 /*
