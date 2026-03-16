@@ -25,6 +25,12 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Verify repo structure
+        run: |
+          pwd
+          ls -la
+          ls -la homeworks
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -36,18 +42,18 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('homeworks/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
       - name: Install dependencies
-        run: go mod tidy
+        run: cd homeworks && go mod tidy
 
       - name: Run tests
-        run: go test -v ./...
+        run: cd homeworks && go test -v ./...
 
       - name: Run coverage
-        run: go test -cover ./...
+        run: cd homeworks && go test -cover ./...
 
   gosec:
     name: Gosec Security Scan
@@ -64,9 +70,10 @@ jobs:
           go-version-file: homeworks/go.mod
 
       - name: Run Gosec
-        uses: securego/gosec@master
-        with:
-          args: ./...
+        run: |
+          cd homeworks
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          "$(go env GOPATH)/bin/gosec" ./...
 
   trivy:
     name: Trivy Filesystem Scan
@@ -81,7 +88,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.24.0
         with:
           scan-type: fs
-          scan-ref: .
+          scan-ref: ./homeworks
           format: table
           exit-code: 0
           ignore-unfixed: true
@@ -98,4 +105,4 @@ jobs:
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}S
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
