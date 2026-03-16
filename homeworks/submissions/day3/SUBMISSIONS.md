@@ -76,13 +76,17 @@ View job result
 
 ![alt text](image-21.png)
 - [x] Bài 4: CI/CD với GitHub Actions
-![alt text](image-23.png)
+![alt text](image-24.png)
 
-
-
+Pass all test
+![alt text](image-25.png)
 
 - [x] Bài 5: Deploy với Docker Compose
+![alt text](image-26.png)
+Deploy thành công
+![alt text](image-27.png)
 
+![alt text](image-28.png)
 
 - [ ] Bài 6: Tính năng EASM mới (Bonus)
 - [ ] Bài 7: Deploy lên Cloud VM (Bonus)
