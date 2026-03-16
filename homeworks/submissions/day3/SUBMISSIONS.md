@@ -76,7 +76,7 @@ View job result
 
 ![alt text](image-21.png)
 - [x] Bài 4: CI/CD với GitHub Actions
-
+![alt text](image-22.png)
 
 - [x] Bài 5: Deploy với Docker Compose
 
