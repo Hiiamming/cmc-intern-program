@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mini ASM Dashboard</title>
+    <script type="module" src="/src/main.js"></script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>🛡️ Mini ASM Dashboard</h1>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Dashboard</h2>
+          <div id="stats" class="stats">Loading...</div>
+        </section>
+
+        <section class="card">
+          <h2>Create Asset</h2>
+          <form id="create-form">
+            <input id="asset-name" type="text" placeholder="example.com or 8.8.8.8" required />
+            <select id="asset-type" required>
+              <option value="">Select type</option>
+              <option value="domain">domain</option>
+              <option value="ip">ip</option>
+              <option value="service">service</option>
+            </select>
+            <button type="submit">Add Asset</button>
+          </form>
+          <div id="create-msg" class="msg"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Assets</h2>
+        <button id="reload-btn">Reload</button>
+        <div id="assets-list">Loading...</div>
+      </section>
+
+      <section class="card">
+        <h2>Scan Results</h2>
+        <div id="scan-results">No scan selected</div>
+      </section>
+    </div>
+  </body>
+</html>

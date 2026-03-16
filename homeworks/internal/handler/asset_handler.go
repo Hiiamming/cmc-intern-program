@@ -260,6 +260,8 @@ func mapErrorToStatus(err error) int {
 		return http.StatusBadRequest
 	case errors.Is(err, model.ErrDuplicate):
 		return http.StatusConflict
+	case errors.Is(err, model.ErrForbiddenScan):
+		return http.StatusForbidden
 	default:
 		return http.StatusInternalServerError
 	}

@@ -22,6 +22,10 @@ var (
 
 	// ErrInvalidStatus indicates invalid asset status
 	ErrInvalidStatus = errors.New("invalid status: must be active or inactive")
+
+    // ErrForbiddenScan indicates scan is not allowed for the given asset
+    ErrForbiddenScan = errors.New("active scan is only allowed for localhost or private IP ranges")
+
 )
 
 /*
