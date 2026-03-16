@@ -106,8 +106,11 @@ func (s *IPScanner) Scan(ctx context.Context, asset *model.Asset, job *model.Sca
 	asnName := ""
 	if strings.HasPrefix(data.AS, "AS") {
 		var num int
-		fmt.Sscanf(data.AS, "AS%d", &num)
-		asnNumber = num
+		if _, err := fmt.Sscanf(data.AS, "AS%d", &num); err != nil {
+			asnNumber = 0
+		} else {
+			asnNumber = num
+		}
 	}
 	asnName = data.ASName
 	if asnName == "" {

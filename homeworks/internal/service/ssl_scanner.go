@@ -85,7 +85,7 @@ func (s *SSLScanner) Scan(ctx context.Context, asset *model.Asset, job *model.Sc
 	dialer := &net.Dialer{Timeout: 5 * time.Second}
 	conn, err := tls.DialWithDialer(dialer, "tcp", net.JoinHostPort(host, "443"), &tls.Config{
 		ServerName:         host,
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, // #nosec G402 -- required for certificate inspection during SSL scanning
 	})
 	if err != nil {
 		return 0, fmt.Errorf("tls dial failed: %w", err)

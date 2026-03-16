@@ -187,31 +187,51 @@ func (p *PostgresStorage) Delete(id string) error {
 }
 
 // Filter returns assets matching the given criteria
+// Filter returns assets matching the given criteria
 func (p *PostgresStorage) Filter(assetType, status string) ([]*model.Asset, error) {
-	query := `
-		SELECT id, name, type, status, created_at, updated_at
-		FROM assets
-		WHERE 1=1
-	`
+	var (
+		query string
+		rows  *sql.Rows
+		err   error
+	)
 
-	var args []interface{}
-	argCount := 1
+	switch {
+	case assetType != "" && status != "":
+		query = `
+			SELECT id, name, type, status, created_at, updated_at
+			FROM assets
+			WHERE type = $1 AND status = $2
+			ORDER BY created_at DESC
+		`
+		rows, err = p.db.Query(query, assetType, status)
 
-	if assetType != "" {
-		query += fmt.Sprintf(" AND type = $%d", argCount)
-		args = append(args, assetType)
-		argCount++
+	case assetType != "":
+		query = `
+			SELECT id, name, type, status, created_at, updated_at
+			FROM assets
+			WHERE type = $1
+			ORDER BY created_at DESC
+		`
+		rows, err = p.db.Query(query, assetType)
+
+	case status != "":
+		query = `
+			SELECT id, name, type, status, created_at, updated_at
+			FROM assets
+			WHERE status = $1
+			ORDER BY created_at DESC
+		`
+		rows, err = p.db.Query(query, status)
+
+	default:
+		query = `
+			SELECT id, name, type, status, created_at, updated_at
+			FROM assets
+			ORDER BY created_at DESC
+		`
+		rows, err = p.db.Query(query)
 	}
 
-	if status != "" {
-		query += fmt.Sprintf(" AND status = $%d", argCount)
-		args = append(args, status)
-		argCount++
-	}
-
-	query += " ORDER BY created_at DESC"
-
-	rows, err := p.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to filter assets: %w", err)
 	}
@@ -344,30 +364,48 @@ func (p *PostgresStorage) GetStats() (*model.AssetStats, error) {
 }
 
 // Count returns the total number of assets matching criteria
+// Count returns the total number of assets matching criteria
 func (p *PostgresStorage) Count(assetType, status string) (*model.AssetCountResponse, error) {
-	query := `
-		SELECT COUNT(*)
-		FROM assets
-		WHERE 1=1
-	`
+	var (
+		query string
+		count int
+		err   error
+	)
 
-	var args []interface{}
-	argCount := 1
+	switch {
+	case assetType != "" && status != "":
+		query = `
+			SELECT COUNT(*)
+			FROM assets
+			WHERE type = $1 AND status = $2
+		`
+		err = p.db.QueryRow(query, assetType, status).Scan(&count)
 
-	if assetType != "" {
-		query += fmt.Sprintf(" AND type = $%d", argCount)
-		args = append(args, assetType)
-		argCount++
+	case assetType != "":
+		query = `
+			SELECT COUNT(*)
+			FROM assets
+			WHERE type = $1
+		`
+		err = p.db.QueryRow(query, assetType).Scan(&count)
+
+	case status != "":
+		query = `
+			SELECT COUNT(*)
+			FROM assets
+			WHERE status = $1
+		`
+		err = p.db.QueryRow(query, status).Scan(&count)
+
+	default:
+		query = `
+			SELECT COUNT(*)
+			FROM assets
+		`
+		err = p.db.QueryRow(query).Scan(&count)
 	}
 
-	if status != "" {
-		query += fmt.Sprintf(" AND status = $%d", argCount)
-		args = append(args, status)
-		argCount++
-	}
-
-	var count int
-	if err := p.db.QueryRow(query, args...).Scan(&count); err != nil {
+	if err != nil {
 		return nil, fmt.Errorf("failed to count assets: %w", err)
 	}
 
@@ -378,7 +416,7 @@ func (p *PostgresStorage) Count(assetType, status string) (*model.AssetCountResp
 			Status: status,
 		},
 	}, nil
-}	
+}
 
 func (p *PostgresStorage) BatchCreate(assets []*model.Asset) ([]string, error) {
 	tx, err := p.db.Begin()

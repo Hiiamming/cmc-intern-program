@@ -138,7 +138,15 @@ func main() {
 
 	handlerWithCORS := handler.CORSMiddleware(mux)
 
-	if err := http.ListenAndServe(addr, handlerWithCORS); err != nil {
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      handlerWithCORS,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("❌ Server failed to start:", err)
 	}
 }
