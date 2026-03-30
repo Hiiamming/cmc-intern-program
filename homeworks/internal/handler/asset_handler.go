@@ -169,8 +169,10 @@ func (h *AssetHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(stats)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *AssetHandler) Count(w http.ResponseWriter, r *http.Request) {
@@ -260,6 +262,8 @@ func mapErrorToStatus(err error) int {
 		return http.StatusBadRequest
 	case errors.Is(err, model.ErrDuplicate):
 		return http.StatusConflict
+	case errors.Is(err, model.ErrForbiddenScan):
+		return http.StatusForbidden
 	default:
 		return http.StatusInternalServerError
 	}

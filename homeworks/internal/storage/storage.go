@@ -49,6 +49,20 @@ type Storage interface {
 	BatchCreate(assets []*model.Asset) ([]string, error)
 }
 
+type ScanStorage interface {
+	CreateScanJob(job *model.ScanJob) error
+	GetScanJob(id string) (*model.ScanJob, error)
+	UpdateScanJob(job *model.ScanJob) error
+
+	CreateScanResult(result *model.ScanResult) error
+	ListScanResultsByJob(scanJobID string) ([]*model.ScanResult, error)
+
+	// optional but useful
+	ListScanJobsByAsset(assetID string) ([]*model.ScanJob, error)
+	ListScanResultsByAsset(assetID string) ([]*model.ScanResult, error)
+    ListScanResultsByAssetAndTypes(assetID string, resultTypes []string) ([]*model.ScanResult, error)
+}
+
 /*
 🎓 NOTES:
 

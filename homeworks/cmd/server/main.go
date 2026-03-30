@@ -1,18 +1,18 @@
 package main
 
 import (
-
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
-	"mini-asm/internal/handler"
 	"mini-asm/internal/database"
+	"mini-asm/internal/handler"
 	"mini-asm/internal/service"
 	"mini-asm/internal/storage/postgres"
 
-	_ "github.com/lib/pq" // PostgreSQL driver
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -63,7 +63,7 @@ func main() {
 	// Optional: Configure connection pool
 	db.SetMaxOpenConns(25)               // Maximum open connections
 	db.SetMaxIdleConns(5)                // Maximum idle connections
-	db.SetConnMaxLifetime(5 * 60 * 1000) // Connection lifetime (5 minutes)
+	db.SetConnMaxLifetime(5 * time.Minute) // Connection lifetime (5 minutes)
 
 	// ============================================
 	// DEPENDENCY INJECTION - Wire up all layers
@@ -73,9 +73,11 @@ func main() {
 	log.Println("✅ Storage initialized: PostgreSQL")
 
 	assetService := service.NewAssetService(store)
-	log.Println("✅ Service initialized: AssetService")
+	scanService := service.NewScanService(store, store)
+	log.Println("✅ Services initialized: AssetService, ScanService")
 
 	assetHandler := handler.NewAssetHandler(assetService)
+	scanHandler := handler.NewScanHandler(scanService)
 	healthHandler := handler.NewHealthHandler(db)
 	log.Println("✅ Handlers initialized")
 
@@ -99,6 +101,15 @@ func main() {
 	mux.HandleFunc("PUT /assets/{id}", assetHandler.UpdateAsset)
 	mux.HandleFunc("DELETE /assets/{id}", assetHandler.DeleteAsset)
 	mux.HandleFunc("DELETE /assets/batch", assetHandler.BatchDeleteAssets)
+
+	mux.HandleFunc("POST /assets/{id}/scan", scanHandler.StartScan)
+	mux.HandleFunc("GET /scan-jobs/{id}", scanHandler.GetScanJob)
+	mux.HandleFunc("GET /scan-jobs/{id}/results", scanHandler.GetScanResults)
+
+	mux.HandleFunc("GET /assets/{id}/scans", scanHandler.ListAssetScans)
+	mux.HandleFunc("GET /assets/{id}/dns", scanHandler.GetAssetDNS)
+	mux.HandleFunc("GET /assets/{id}/whois", scanHandler.GetAssetWhois)
+	mux.HandleFunc("GET /assets/{id}/subdomains", scanHandler.GetAssetSubdomains)
 
 	log.Println("✅ Routes registered:")
 	log.Println("   GET    /health")
@@ -125,7 +136,17 @@ func main() {
 	log.Println("Press Ctrl+C to stop")
 	log.Println()
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	handlerWithCORS := handler.CORSMiddleware(mux)
+
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      handlerWithCORS,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("❌ Server failed to start:", err)
 	}
 }

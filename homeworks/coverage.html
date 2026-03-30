@@ -1,0 +1,3457 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>server: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">mini-asm/cmd/server/main.go (0.0%)</option>
+				
+				<option value="file1">mini-asm/internal/config/config.go (0.0%)</option>
+				
+				<option value="file2">mini-asm/internal/database/retry.go (0.0%)</option>
+				
+				<option value="file3">mini-asm/internal/handler/asset_handler.go (7.3%)</option>
+				
+				<option value="file4">mini-asm/internal/handler/health_handler.go (0.0%)</option>
+				
+				<option value="file5">mini-asm/internal/handler/scan_handler.go (0.0%)</option>
+				
+				<option value="file6">mini-asm/internal/model/asset.go (100.0%)</option>
+				
+				<option value="file7">mini-asm/internal/model/scan.go (0.0%)</option>
+				
+				<option value="file8">mini-asm/internal/service/asset_service.go (9.7%)</option>
+				
+				<option value="file9">mini-asm/internal/service/ip_scanner.go (28.9%)</option>
+				
+				<option value="file10">mini-asm/internal/service/port_scanner.go (73.3%)</option>
+				
+				<option value="file11">mini-asm/internal/service/scan_service.go (4.9%)</option>
+				
+				<option value="file12">mini-asm/internal/service/ssl_scanner.go (68.2%)</option>
+				
+				<option value="file13">mini-asm/internal/service/tech_scanner.go (84.4%)</option>
+				
+				<option value="file14">mini-asm/internal/storage/postgres/postgres.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "fmt"
+        "log"
+        "net/http"
+        "os"
+        "time"
+
+        "mini-asm/internal/database"
+        "mini-asm/internal/handler"
+        "mini-asm/internal/service"
+        "mini-asm/internal/storage/postgres"
+
+        _ "github.com/lib/pq"
+)
+
+func main() <span class="cov0" title="0">{
+        log.Println("🚀 Starting Mini ASM Server (Session 3 - Database)...")
+
+        // ============================================
+        // CONFIGURATION - Load from environment
+        // ============================================
+
+        // Database configuration
+        dbHost := getEnv("DB_HOST", "localhost")
+        dbPort := getEnv("DB_PORT", "5432")
+        dbUser := getEnv("DB_USER", "secops")
+        dbPassword := getEnv("DB_PASSWORD", "secops123")
+        dbName := getEnv("DB_NAME", "mini_asm")
+        dbSSLMode := getEnv("DB_SSLMODE", "disable")
+
+        // Build connection string
+        connStr := fmt.Sprintf(
+                "host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+                dbHost, dbPort, dbUser, dbPassword, dbName, dbSSLMode,
+        )
+
+        log.Printf("📊 Connecting to database: %s@%s:%s/%s", dbUser, dbHost, dbPort, dbName)
+
+        // ============================================
+        // DATABASE CONNECTION
+        // ============================================
+
+        // Open database connection
+        // db, err := sql.Open("postgres", connStr)
+        // if err != nil {
+        //         log.Fatal("❌ Failed to open database:", err)
+        // }
+        // defer db.Close()
+
+        // // Verify connection with ping
+        // if err := db.Ping(); err != nil {
+        //         log.Fatal("❌ Failed to ping database:", err)
+        // }
+        db, err := database.ConnectWithRetry(connStr, 5)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("❌ Database connection failed: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">log.Println("✅ Database connected successfully")
+
+        // Optional: Configure connection pool
+        db.SetMaxOpenConns(25)               // Maximum open connections
+        db.SetMaxIdleConns(5)                // Maximum idle connections
+        db.SetConnMaxLifetime(5 * time.Minute) // Connection lifetime (5 minutes)
+
+        // ============================================
+        // DEPENDENCY INJECTION - Wire up all layers
+        // ============================================
+
+        store := postgres.NewPostgresStorage(db)
+        log.Println("✅ Storage initialized: PostgreSQL")
+
+        assetService := service.NewAssetService(store)
+        scanService := service.NewScanService(store, store)
+        log.Println("✅ Services initialized: AssetService, ScanService")
+
+        assetHandler := handler.NewAssetHandler(assetService)
+        scanHandler := handler.NewScanHandler(scanService)
+        healthHandler := handler.NewHealthHandler(db)
+        log.Println("✅ Handlers initialized")
+
+        // ============================================
+        // ROUTING - Register HTTP endpoints
+        // ============================================
+
+        mux := http.NewServeMux()
+
+        // Health check
+        mux.HandleFunc("GET /health", healthHandler.Check)
+
+        // Asset CRUD operations
+        mux.HandleFunc("POST /assets", assetHandler.CreateAsset)
+        mux.HandleFunc("POST /assets/batch", assetHandler.BatchCreateAssets)
+        mux.HandleFunc("GET /assets/search", assetHandler.SearchAssets)
+        mux.HandleFunc("GET /assets", assetHandler.ListAssets)
+        mux.HandleFunc("GET /assets/stats", assetHandler.GetStats) // homework add
+        mux.HandleFunc("GET /assets/count", assetHandler.Count)    // homework add
+        mux.HandleFunc("GET /assets/{id}", assetHandler.GetAsset)
+        mux.HandleFunc("PUT /assets/{id}", assetHandler.UpdateAsset)
+        mux.HandleFunc("DELETE /assets/{id}", assetHandler.DeleteAsset)
+        mux.HandleFunc("DELETE /assets/batch", assetHandler.BatchDeleteAssets)
+
+        mux.HandleFunc("POST /assets/{id}/scan", scanHandler.StartScan)
+        mux.HandleFunc("GET /scan-jobs/{id}", scanHandler.GetScanJob)
+        mux.HandleFunc("GET /scan-jobs/{id}/results", scanHandler.GetScanResults)
+
+        mux.HandleFunc("GET /assets/{id}/scans", scanHandler.ListAssetScans)
+        mux.HandleFunc("GET /assets/{id}/dns", scanHandler.GetAssetDNS)
+        mux.HandleFunc("GET /assets/{id}/whois", scanHandler.GetAssetWhois)
+        mux.HandleFunc("GET /assets/{id}/subdomains", scanHandler.GetAssetSubdomains)
+
+        log.Println("✅ Routes registered:")
+        log.Println("   GET    /health")
+        log.Println("   POST   /assets")
+        log.Println("   POST   /assets/batch")
+        log.Println("   GET    /assets")
+        log.Println("   GET    /assets/stats")
+        log.Println("   GET    /assets/count")
+        log.Println("   GET    /assets/{id}")
+        log.Println("   PUT    /assets/{id}")
+        log.Println("   DELETE /assets/{id}")
+        log.Println("   DELETE /assets/batch?ids={id1},{id2},...")
+
+        // ============================================
+        // START SERVER
+        // ============================================
+
+        port := getEnv("SERVER_PORT", "8080")
+        addr := ":" + port
+
+        log.Printf("🌐 Server listening on http://localhost%s\n", addr)
+        log.Println("📖 API Documentation: see docs/api.yml")
+        log.Println("🗄️  Database: PostgreSQL (persistent storage)")
+        log.Println("Press Ctrl+C to stop")
+        log.Println()
+
+        if err := http.ListenAndServe(addr, mux); err != nil </span><span class="cov0" title="0">{
+                log.Fatal("❌ Server failed to start:", err)
+        }</span>
+}
+
+// getEnv retrieves an environment variable with a fallback default value
+func getEnv(key, defaultValue string) string <span class="cov0" title="0">{
+        value := os.Getenv(key)
+        if value == "" </span><span class="cov0" title="0">{
+                return defaultValue
+        }</span>
+        <span class="cov0" title="0">return value</span>
+}</pre>
+		
+		<pre class="file" id="file1" style="display: none">package config
+
+import "github.com/spf13/viper"
+
+type PostgresConfig struct {
+        DBHost     string `mapstructure:"DB_HOST"`
+        DBPort     string `mapstructure:"DB_PORT"`
+        DBUser     string `mapstructure:"DB_USER"`
+        DBPassword string `mapstructure:"DB_PASSWORD"`
+        DBName     string `mapstructure:"DB_NAME"`
+}
+
+func LoadPostgresConfig(file_name string) (config *PostgresConfig, err error) <span class="cov0" title="0">{
+        viper.SetConfigFile(file_name)
+
+        // Set default values
+        viper.SetDefault("DB_NAME", "mini_asm")
+
+        err = viper.ReadInConfig()
+        if err != nil </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov0" title="0">config = &amp;PostgresConfig{}
+        err = viper.Unmarshal(config)
+        if err != nil </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov0" title="0">return config, err</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package database
+
+import (
+        "database/sql"
+        "fmt"
+        "log"
+        "time"
+
+        _ "github.com/lib/pq"
+)
+
+// ConnectWithRetry tries to connect to database with retry and exponential backoff
+func ConnectWithRetry(dsn string, maxRetries int) (*sql.DB, error) <span class="cov0" title="0">{
+
+        var db *sql.DB
+        var err error
+
+        for attempt := 1; attempt &lt;= maxRetries; attempt++ </span><span class="cov0" title="0">{
+
+                log.Printf("🔄 Database connection attempt %d/%d...", attempt, maxRetries)
+
+                db, err = sql.Open("postgres", dsn)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to open db: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">err = db.Ping()
+                if err == nil </span><span class="cov0" title="0">{
+                        log.Println("✅ Database connected successfully!")
+                        return db, nil
+                }</span>
+
+                <span class="cov0" title="0">if attempt == maxRetries </span><span class="cov0" title="0">{
+                        break</span>
+                }
+
+                <span class="cov0" title="0">backoff := time.Duration(1&lt;&lt;uint(attempt-1)) * time.Second
+
+                log.Printf("⚠️  Connection failed: %v. Retrying in %v...", err, backoff)
+
+                time.Sleep(backoff)</span>
+        }
+
+        <span class="cov0" title="0">return nil, fmt.Errorf("failed to connect database after %d attempts: %w", maxRetries, err)</span>
+}</pre>
+		
+		<pre class="file" id="file3" style="display: none">package handler
+
+import (
+        "encoding/json"
+        "errors"
+        "mini-asm/internal/model"
+        "mini-asm/internal/service"
+        "net/http"
+        "strings"
+)
+
+// AssetHandler handles HTTP requests for asset operations
+// It's responsible for HTTP concerns only (parsing, status codes, JSON)
+type AssetHandler struct {
+        service *service.AssetService
+}
+
+// NewAssetHandler creates a new asset handler
+func NewAssetHandler(service *service.AssetService) *AssetHandler <span class="cov8" title="1">{
+        return &amp;AssetHandler{
+                service: service,
+        }
+}</span>
+
+// CreateAssetRequest represents the request body for creating an asset
+type CreateAssetRequest struct {
+        Name   string `json:"name"`
+        Type   string `json:"type"`
+        Status string `json:"status,omitempty"` // Optional
+}
+
+// UpdateAssetRequest represents the request body for updating an asset
+type UpdateAssetRequest struct {
+        Name   string `json:"name,omitempty"`
+        Type   string `json:"type,omitempty"`
+        Status string `json:"status,omitempty"`
+}
+
+// CreateAsset handles POST /assets
+func (h *AssetHandler) CreateAsset(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        // Parse request body
+        var req CreateAssetRequest
+        if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov0" title="0">{
+                RespondError(w, http.StatusBadRequest, "Invalid request body")
+                return
+        }</span>
+
+        // Call service layer
+        <span class="cov8" title="1">asset, err := h.service.CreateAsset(req.Name, req.Type)
+        if err != nil </span><span class="cov0" title="0">{
+                // Map service errors to HTTP status codes
+                statusCode := mapErrorToStatus(err)
+                RespondError(w, statusCode, err.Error())
+                return
+        }</span>
+
+        // Return successful response
+        <span class="cov8" title="1">RespondJSON(w, http.StatusCreated, asset)</span>
+}
+
+// ListAssets handles GET /assets
+func (h *AssetHandler) ListAssets(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        // Get query parameters for filtering/searching
+        assetType := r.URL.Query().Get("type")
+        status := r.URL.Query().Get("status")
+        search := r.URL.Query().Get("search")
+
+        var assets []*model.Asset
+        var err error
+
+        // Determine which operation to perform
+        if search != "" </span><span class="cov0" title="0">{
+                // Search by name
+                assets, err = h.service.SearchAssets(search)
+        }</span> else<span class="cov0" title="0"> if assetType != "" || status != "" </span><span class="cov0" title="0">{
+                // Filter by type and/or status
+                assets, err = h.service.FilterAssets(assetType, status)
+        }</span> else<span class="cov0" title="0"> {
+                // Get all assets
+                assets, err = h.service.GetAllAssets()
+        }</span>
+
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                statusCode := mapErrorToStatus(err)
+                RespondError(w, statusCode, err.Error())
+                return
+        }</span>
+
+        // Return empty array instead of null if no assets
+        <span class="cov0" title="0">if assets == nil </span><span class="cov0" title="0">{
+                assets = []*model.Asset{}
+        }</span>
+
+        <span class="cov0" title="0">RespondJSON(w, http.StatusOK, assets)</span>
+}
+
+// GetAsset handles GET /assets/{id}
+func (h *AssetHandler) GetAsset(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        // Get ID from URL path
+        id := r.PathValue("id")
+        if id == "" </span><span class="cov0" title="0">{
+                RespondError(w, http.StatusBadRequest, "Asset ID is required")
+                return
+        }</span>
+
+        // Call service
+        <span class="cov0" title="0">asset, err := h.service.GetAssetByID(id)
+        if err != nil </span><span class="cov0" title="0">{
+                statusCode := mapErrorToStatus(err)
+                RespondError(w, statusCode, err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">RespondJSON(w, http.StatusOK, asset)</span>
+}
+
+// UpdateAsset handles PUT /assets/{id}
+func (h *AssetHandler) UpdateAsset(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        // Get ID from URL path
+        id := r.PathValue("id")
+        if id == "" </span><span class="cov0" title="0">{
+                RespondError(w, http.StatusBadRequest, "Asset ID is required")
+                return
+        }</span>
+
+        // Parse request body
+        <span class="cov0" title="0">var req UpdateAssetRequest
+        if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov0" title="0">{
+                RespondError(w, http.StatusBadRequest, "Invalid request body")
+                return
+        }</span>
+
+        // Call service
+        <span class="cov0" title="0">asset, err := h.service.UpdateAsset(id, req.Name, req.Type, req.Status)
+        if err != nil </span><span class="cov0" title="0">{
+                statusCode := mapErrorToStatus(err)
+                RespondError(w, statusCode, err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">RespondJSON(w, http.StatusOK, asset)</span>
+}
+
+// DeleteAsset handles DELETE /assets/{id}
+func (h *AssetHandler) DeleteAsset(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        // Get ID from URL path
+        id := r.PathValue("id")
+        if id == "" </span><span class="cov0" title="0">{
+                RespondError(w, http.StatusBadRequest, "Asset ID is required")
+                return
+        }</span>
+
+        // Call service
+        <span class="cov0" title="0">if err := h.service.DeleteAsset(id); err != nil </span><span class="cov0" title="0">{
+                statusCode := mapErrorToStatus(err)
+                RespondError(w, statusCode, err.Error())
+                return
+        }</span>
+
+        // 204 No Content - successful deletion
+        <span class="cov0" title="0">w.WriteHeader(http.StatusNoContent)</span>
+}
+
+func (h *AssetHandler) GetStats(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        stats, err := h.service.GetStats()
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(stats)</span>
+}
+
+func (h *AssetHandler) Count(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        assetType := r.URL.Query().Get("type")
+        status := r.URL.Query().Get("status")
+
+        result, err := h.service.Count(assetType, status)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusOK)
+        _ = json.NewEncoder(w).Encode(result)</span>
+}
+
+func (h *AssetHandler) BatchCreateAssets(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        var req model.BatchCreateAssetsRequest
+
+        if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid request body")
+                return
+        }</span>
+
+        <span class="cov0" title="0">resp, err := h.service.BatchCreateAssets(&amp;req)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusCreated, resp)</span>
+}
+
+func (h *AssetHandler) BatchDeleteAssets(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        idsParam := r.URL.Query().Get("ids")
+        if idsParam == "" </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "ids query param is required")
+                return
+        }</span>
+
+        <span class="cov0" title="0">ids := strings.Split(idsParam, ",")
+
+        resp, err := h.service.BatchDeleteAssets(ids)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusOK, resp)</span>
+}
+
+func (h *AssetHandler) SearchAssets(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        query := r.URL.Query().Get("q")
+
+        if query == "" </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "q query param is required")
+                return
+        }</span>
+
+        <span class="cov0" title="0">assets, err := h.service.SearchAssets(query)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusInternalServerError, err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">if len(assets) == 0 </span><span class="cov0" title="0">{
+                writeJSON(w, http.StatusOK, map[string]string{
+                        "message": "no assets found",
+                })
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusOK, assets)</span>
+}
+
+
+// mapErrorToStatus maps service layer errors to HTTP status codes
+func mapErrorToStatus(err error) int <span class="cov0" title="0">{
+        switch </span>{
+        case errors.Is(err, model.ErrNotFound):<span class="cov0" title="0">
+                return http.StatusNotFound</span>
+        case errors.Is(err, model.ErrInvalidInput),
+                errors.Is(err, model.ErrEmptyName),
+                errors.Is(err, model.ErrInvalidType),
+                errors.Is(err, model.ErrInvalidStatus):<span class="cov0" title="0">
+                return http.StatusBadRequest</span>
+        case errors.Is(err, model.ErrDuplicate):<span class="cov0" title="0">
+                return http.StatusConflict</span>
+        case errors.Is(err, model.ErrForbiddenScan):<span class="cov0" title="0">
+                return http.StatusForbidden</span>
+        default:<span class="cov0" title="0">
+                return http.StatusInternalServerError</span>
+        }
+}
+
+// RespondJSON writes a JSON response
+func RespondJSON(w http.ResponseWriter, status int, data interface{}) <span class="cov8" title="1">{
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(status)
+
+        if err := json.NewEncoder(w).Encode(data); err != nil </span><span class="cov0" title="0">{
+                // Log error but can't change status code (already written)
+                http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+        }</span>
+}
+
+// RespondError writes a JSON error response
+func RespondError(w http.ResponseWriter, status int, message string) <span class="cov0" title="0">{
+        RespondJSON(w, status, map[string]string{
+                "error": message,
+        })
+}</span>
+
+func writeJSON(w http.ResponseWriter, status int, data interface{}) <span class="cov0" title="0">{
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(status)
+        _ = json.NewEncoder(w).Encode(data)
+}</span>
+
+func writeJSONError(w http.ResponseWriter, status int, message string) <span class="cov0" title="0">{
+        writeJSON(w, status, map[string]string{
+                "error": message,
+        })
+}</span>
+
+/*
+🎓 NOTES:
+
+1. Handler Responsibilities:
+   ✅ Parse HTTP request (JSON, query params, URL params)
+   ✅ Call appropriate service method
+   ✅ Map errors to HTTP status codes
+   ✅ Format HTTP response (JSON)
+   ❌ Business logic
+   ❌ Validation (except HTTP-specific)
+   ❌ Data access
+
+2. HTTP Request Parsing:
+
+   Body (JSON):
+   var req CreateAssetRequest
+   json.NewDecoder(r.Body).Decode(&amp;req)
+
+   Query params:
+   type := r.URL.Query().Get("type")
+
+   URL path params:
+   id := r.PathValue("id")  // Go 1.22+
+
+3. HTTP Status Codes:
+   200 OK           - Successful GET/PUT
+   201 Created      - Successful POST
+   204 No Content   - Successful DELETE
+   400 Bad Request  - Invalid input
+   404 Not Found    - Resource doesn't exist
+   409 Conflict     - Duplicate
+   500 Internal     - Server error
+
+4. Error Mapping:
+   func mapErrorToStatus(err error) int {
+       switch {
+       case errors.Is(err, model.ErrNotFound):
+           return 404
+       case errors.Is(err, model.ErrInvalidInput):
+           return 400
+       ...
+       }
+   }
+
+   Q: Tại sao không return status code từ service?
+   A: Service layer không biết về HTTP!
+      Có thể reuse service cho CLI, gRPC, etc.
+
+5. JSON Response Helpers:
+   RespondJSON() - generic
+   RespondError() - consistent error format
+
+   {"error": "message"} - standard format
+
+6. Request/Response Structs:
+   type CreateAssetRequest struct {
+       Name string `json:"name"`
+       Type string `json:"type"`
+   }
+
+   Q: Tại sao không dùng model.Asset trực tiếp?
+   A: API request != domain model
+      - Request có thể có extra fields (passwords, etc.)
+      - Response có thể exclude fields (sensitive data)
+      - Clear API contract
+
+7. Query Parameters:
+   GET /assets?type=domain&amp;status=active
+   → r.URL.Query().Get("type")
+
+   Flexible filtering!
+
+8. Go 1.22+ Path Values:
+   Pattern: "GET /assets/{id}"
+   Get value: r.PathValue("id")
+
+   Trước Go 1.22: phải dùng regex hoặc third-party router
+
+📝 COMMON MISTAKES:
+
+❌ Mistake 1: Business logic trong handler
+func (h *Handler) CreateAsset(w, r) {
+    // Parse request
+    if req.Name == "" { return } // Validation ở đây - WRONG!
+    asset.ID = uuid.New()          // Business logic - WRONG!
+}
+→ Should be in service layer!
+
+❌ Mistake 2: SQL trong handler
+func (h *Handler) CreateAsset(w, r) {
+    db.Exec("INSERT INTO...")  // Data access - WRONG!
+}
+→ Should be in storage layer!
+
+❌ Mistake 3: Not checking errors
+json.NewDecoder(r.Body).Decode(&amp;req)  // No error check - WRONG!
+
+✅ Always check errors and respond appropriately
+
+🔄 REQUEST FLOW EXAMPLE:
+
+Client sends:
+POST /assets
+{"name": "example.com", "type": "domain"}
+
+Handler:
+1. Parse JSON → CreateAssetRequest
+2. Call service.CreateAsset("example.com", "domain")
+3. Service returns (*Asset, nil) or (nil, error)
+4. Map result to HTTP response
+
+Success response:
+201 Created
+{
+  "id": "uuid",
+  "name": "example.com",
+  "type": "domain",
+  "status": "active",
+  "created_at": "2026-03-03T10:00:00Z",
+  "updated_at": "2026-03-03T10:00:00Z"
+}
+
+Error response:
+400 Bad Request
+{
+  "error": "name is required"
+}
+
+❓ QUESTIONS TO ASK:
+
+1. Tại sao cần RespondError helper function?
+   → Consistency, DRY principle
+
+2. Handler có nên log không?
+   → Có! (Buổi 5 sẽ add logging middleware)
+
+3. Làm sao handle CORS?
+   → Middleware! (Buổi 6)
+
+4. PUT vs PATCH?
+   → PUT = replace entire resource
+   → PATCH = partial update
+   → We use PUT with partial update logic
+*/</pre>
+		
+		<pre class="file" id="file4" style="display: none">package handler
+
+import (
+        "encoding/json"
+        "net/http"
+        "time"
+        "database/sql"
+)
+
+// HealthHandler handles health check requests
+type HealthHandler struct {
+        db *sql.DB
+}
+
+// NewHealthHandler creates a new health check handler
+func NewHealthHandler(db *sql.DB) *HealthHandler <span class="cov0" title="0">{
+        return &amp;HealthHandler{
+                db: db,
+        }
+}</span>
+
+// HealthResponse represents the health check response
+type HealthResponse struct {
+        Status    string           `json:"status"`
+        Database  DatabaseHealth   `json:"database"`
+        Timestamp time.Time        `json:"timestamp"`
+}
+
+type DatabaseHealth struct {
+        Status          string `json:"status"`
+        OpenConnections int    `json:"open_connections"`
+        InUse           int    `json:"in_use"`
+        Idle            int    `json:"idle"`
+        MaxOpen         int    `json:"max_open"`
+}
+
+// Check handles GET /health
+func (h *HealthHandler) Check(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        w.Header().Set("Content-Type", "application/json")
+
+        dbStats := h.db.Stats()
+
+        resp := HealthResponse{
+                Timestamp: time.Now().UTC(),
+                Database: DatabaseHealth{
+                        OpenConnections: dbStats.OpenConnections,
+                        InUse:           dbStats.InUse,
+                        Idle:            dbStats.Idle,
+                        MaxOpen:         dbStats.MaxOpenConnections,
+                },
+        }
+
+        if err := h.db.Ping(); err != nil </span><span class="cov0" title="0">{
+                resp.Status = "degraded"
+                resp.Database.Status = "disconnected"
+                w.WriteHeader(http.StatusServiceUnavailable)
+                _ = json.NewEncoder(w).Encode(resp)
+                return
+        }</span>
+
+        <span class="cov0" title="0">resp.Status = "ok"
+        resp.Database.Status = "connected"
+        w.WriteHeader(http.StatusOK)
+        _ = json.NewEncoder(w).Encode(resp)</span>
+}
+
+/*
+🎓 NOTES:
+
+Refactored từ Buổi 1:
+- Buổi 1: Health check logic trong main.go
+- Buổi 2: Extracted to separate handler
+
+Benefits:
+- Consistent with other handlers
+- Can add more health checks (database, etc.) in Buổi 3
+- Reusable and testable
+*/
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package handler
+
+import (
+        "encoding/json"
+        "net/http"
+        "strings"
+
+        "mini-asm/internal/model"
+        "mini-asm/internal/service"
+
+        "github.com/google/uuid"
+)
+
+type ScanHandler struct {
+        scanService *service.ScanService
+}
+
+func parseAssetIDFromPath(r *http.Request) (string, error) <span class="cov0" title="0">{
+        assetID := strings.Trim(strings.TrimSpace(r.PathValue("id")), `"`)
+        if assetID == "" </span><span class="cov0" title="0">{
+                return "", model.ErrInvalidInput
+        }</span>
+        <span class="cov0" title="0">if _, err := uuid.Parse(assetID); err != nil </span><span class="cov0" title="0">{
+                return "", model.ErrInvalidInput
+        }</span>
+        <span class="cov0" title="0">return assetID, nil</span>
+}
+
+func decodeScanResults(results []*model.ScanResult) []interface{} <span class="cov0" title="0">{
+        items := make([]interface{}, 0, len(results))
+        for _, result := range results </span><span class="cov0" title="0">{
+                var item interface{}
+                if err := json.Unmarshal(result.Data, &amp;item); err != nil </span><span class="cov0" title="0">{
+                        item = map[string]interface{}{
+                                "id":          result.ID,
+                                "scan_job_id": result.ScanJobID,
+                                "asset_id":    result.AssetID,
+                                "result_type": result.ResultType,
+                                "data":        string(result.Data),
+                                "created_at":  result.CreatedAt,
+                        }
+                }</span>
+                <span class="cov0" title="0">items = append(items, item)</span>
+        }
+        <span class="cov0" title="0">return items</span>
+}
+
+func NewScanHandler(scanService *service.ScanService) *ScanHandler <span class="cov0" title="0">{
+        return &amp;ScanHandler{
+                scanService: scanService,
+        }
+}</span>
+
+func (h *ScanHandler) StartScan(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        assetID := strings.Trim(strings.TrimSpace(r.PathValue("id")), `"`)
+        if assetID == "" </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "asset ID is required")
+                return
+        }</span>
+
+        <span class="cov0" title="0">if _, err := uuid.Parse(assetID); err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid asset ID format")
+                return
+        }</span>
+
+        <span class="cov0" title="0">var req model.StartScanRequest
+        if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid request body")
+                return
+        }</span>
+
+        <span class="cov0" title="0">job, err := h.scanService.StartScan(assetID, req.ScanType)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, mapErrorToStatus(err), err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusAccepted, job)</span>
+}
+
+func (h *ScanHandler) GetScanJob(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        jobID := strings.Trim(strings.TrimSpace(r.PathValue("id")), `"`)
+        if jobID == "" </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "job ID is required")
+                return
+        }</span>
+
+        <span class="cov0" title="0">if _, err := uuid.Parse(jobID); err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid job ID format")
+                return
+        }</span>
+
+        <span class="cov0" title="0">job, err := h.scanService.GetScanJob(jobID)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, mapErrorToStatus(err), err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusOK, job)</span>
+}
+
+func (h *ScanHandler) GetScanResults(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        jobID := strings.Trim(strings.TrimSpace(r.PathValue("id")), `"`)
+        if jobID == "" </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "job ID is required")
+                return
+        }</span>
+
+        <span class="cov0" title="0">if _, err := uuid.Parse(jobID); err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid job ID format")
+                return
+        }</span>
+
+        <span class="cov0" title="0">resp, err := h.scanService.GetScanResults(jobID)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, mapErrorToStatus(err), err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">out := map[string]interface{}{
+                "job_id":    resp.Job.ID,
+                "scan_type": resp.Job.ScanType,
+                "results":   []interface{}{},
+        }
+
+        items := make([]interface{}, 0, len(resp.Results))
+        for _, r := range resp.Results </span><span class="cov0" title="0">{
+                var item interface{}
+                if err := json.Unmarshal(r.Data, &amp;item); err != nil </span><span class="cov0" title="0">{
+                        item = map[string]interface{}{
+                                "raw": string(r.Data),
+                        }
+                }</span>
+                <span class="cov0" title="0">items = append(items, item)</span>
+        }
+        <span class="cov0" title="0">out["results"] = items
+
+        writeJSON(w, http.StatusOK, out)</span>
+}
+
+func (h *ScanHandler) ListAssetScans(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        assetID, err := parseAssetIDFromPath(r)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid asset ID format")
+                return
+        }</span>
+
+        <span class="cov0" title="0">scans, err := h.scanService.ListAssetScans(assetID)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, mapErrorToStatus(err), err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusOK, map[string]interface{}{
+                "asset_id": assetID,
+                "scans":    scans,
+        })</span>
+}
+
+func (h *ScanHandler) ListAssetResults(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        assetID, err := parseAssetIDFromPath(r)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid asset ID format")
+                return
+        }</span>
+
+        <span class="cov0" title="0">results, err := h.scanService.ListAssetResults(assetID)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, mapErrorToStatus(err), err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusOK, map[string]interface{}{
+                "asset_id": assetID,
+                "results":  decodeScanResults(results),
+        })</span>
+}
+
+func (h *ScanHandler) GetAssetDNS(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        assetID, err := parseAssetIDFromPath(r)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid asset ID format")
+                return
+        }</span>
+
+        <span class="cov0" title="0">results, err := h.scanService.ListAssetDNSResults(assetID)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, mapErrorToStatus(err), err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusOK, map[string]interface{}{
+                "asset_id": assetID,
+                "records":  decodeScanResults(results),
+        })</span>
+}
+
+func (h *ScanHandler) GetAssetWhois(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        assetID, err := parseAssetIDFromPath(r)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid asset ID format")
+                return
+        }</span>
+
+        <span class="cov0" title="0">results, err := h.scanService.ListAssetWhoisResults(assetID)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, mapErrorToStatus(err), err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusOK, map[string]interface{}{
+                "asset_id": assetID,
+                "whois":    decodeScanResults(results),
+        })</span>
+}
+
+func (h *ScanHandler) GetAssetSubdomains(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        assetID, err := parseAssetIDFromPath(r)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, http.StatusBadRequest, "invalid asset ID format")
+                return
+        }</span>
+
+        <span class="cov0" title="0">results, err := h.scanService.ListAssetSubdomainResults(assetID)
+        if err != nil </span><span class="cov0" title="0">{
+                writeJSONError(w, mapErrorToStatus(err), err.Error())
+                return
+        }</span>
+
+        <span class="cov0" title="0">writeJSON(w, http.StatusOK, map[string]interface{}{
+                "asset_id":   assetID,
+                "subdomains": decodeScanResults(results),
+        })</span>
+}</pre>
+		
+		<pre class="file" id="file6" style="display: none">package model
+
+import "time"
+
+// Asset represents a public-facing resource (domain, IP, or service)
+// This is our core domain entity - no dependencies on other layers
+type Asset struct {
+        ID        string    `json:"id"`         // UUID
+        Name      string    `json:"name"`       // e.g., "example.com", "192.168.1.1"
+        Type      string    `json:"type"`       // domain, ip, or service
+        Status    string    `json:"status"`     // active or inactive
+        CreatedAt time.Time `json:"created_at"` // Auto-set on creation
+        UpdatedAt time.Time `json:"updated_at"` // Auto-updated
+}
+
+type AssetStats struct {
+        Total    int            `json:"total"`
+        ByType   map[string]int `json:"by_type"`
+        ByStatus map[string]int `json:"by_status"`
+}
+
+type AssetCountFilters struct {
+        Type   string `json:"type"`
+        Status string `json:"status"`
+}
+
+type AssetCountResponse struct {
+        Count   int               `json:"count"`
+        Filters AssetCountFilters `json:"filters"`
+}
+
+type CreateAssetRequest struct {
+        Name   string `json:"name"`
+        Type   string `json:"type"`
+        Status string `json:"status,omitempty"`
+}
+
+type BatchCreateAssetsRequest struct {
+        Assets []CreateAssetRequest `json:"assets"`
+}
+
+type BatchCreateAssetsResponse struct {
+        Created int      `json:"created"`
+        IDs     []string `json:"ids"`
+}
+
+type BatchDeleteAssetsResponse struct {
+        Deleted  int `json:"deleted"`
+        NotFound int `json:"not_found"`
+}
+
+
+// Asset types - using constants for type safety
+const (
+        TypeDomain  = "domain"
+        TypeIP      = "ip"
+        TypeService = "service"
+)
+
+// Asset statuses
+const (
+        StatusActive   = "active"
+        StatusInactive = "inactive"
+)
+
+// IsValidType checks if the given type is valid
+func IsValidType(t string) bool <span class="cov8" title="1">{
+        return t == TypeDomain || t == TypeIP || t == TypeService
+}</span>
+
+// IsValidStatus checks if the given status is valid
+func IsValidStatus(s string) bool <span class="cov8" title="1">{
+        return s == StatusActive || s == StatusInactive
+}</span>
+
+/*
+🎓 NOTES:
+
+1. Pure Domain Entity:
+   - No database tags (gorm, sql, etc.)
+   - No HTTP concerns
+   - Just business concepts
+   - This is the "Entity Layer" in Clean Architecture
+
+2. Struct Tags:
+   - `json:"id"` - định nghĩa tên field trong JSON response
+   - Quan trọng: nếu không có tag, Go sẽ export field name as-is
+   - Example: ID → "ID" vs id → "id"
+
+3. Constants vs Strings:
+   - ✅ TypeDomain - compiler checked, typo-safe
+   - ❌ "domain" - runtime error if typo
+   - Best practice: use constants!
+
+4. Helper Functions:
+   - IsValidType(), IsValidStatus()
+   - Used by service layer for validation
+   - Keep validation logic reusable
+
+5. Why time.Time?
+   - Built-in JSON marshalling
+   - Timezone aware
+   - Easy comparison and manipulation
+
+
+*/</pre>
+		
+		<pre class="file" id="file7" style="display: none">package model
+
+import (
+        "encoding/json"
+        "time"
+)
+
+type ScanType string
+
+const (
+        ScanTypeDNS       ScanType = "dns"
+        ScanTypeWHOIS     ScanType = "whois"
+        ScanTypeSubdomain ScanType = "subdomain"
+        ScanTypeCertTrans ScanType = "cert_trans"
+        ScanTypeASN       ScanType = "asn"
+
+        // NEW
+        ScanTypeIP   ScanType = "ip"
+        ScanTypePort ScanType = "port"
+        ScanTypeSSL  ScanType = "ssl"
+        ScanTypeTech ScanType = "tech"
+
+        ScanTypeAll ScanType = "all"
+)
+
+type ScanStatus string
+
+const (
+        ScanStatusPending   ScanStatus = "pending"
+        ScanStatusRunning   ScanStatus = "running"
+        ScanStatusCompleted ScanStatus = "completed"
+        ScanStatusFailed    ScanStatus = "failed"
+        ScanStatusPartial   ScanStatus = "partial"
+)
+
+type ScanJob struct {
+        ID        string     `json:"id"`
+        AssetID   string     `json:"asset_id"`
+        ScanType  ScanType   `json:"scan_type"`
+        Status    ScanStatus `json:"status"`
+        StartedAt time.Time  `json:"started_at"`
+        EndedAt   *time.Time `json:"ended_at"`
+        Error     string     `json:"error"`
+        Results   int        `json:"results"`
+        CreatedAt time.Time  `json:"created_at"`
+}
+
+type ScanResult struct {
+        ID         string          `json:"id"`
+        ScanJobID  string          `json:"scan_job_id"`
+        AssetID    string          `json:"asset_id"`
+        ResultType string          `json:"result_type"`
+        Data       json.RawMessage `json:"data"`
+        CreatedAt  time.Time       `json:"created_at"`
+}
+
+type ScanResultsResponse struct {
+        Job     *ScanJob      `json:"job"`
+        Results []*ScanResult `json:"results"`
+}
+
+type StartScanRequest struct {
+        ScanType ScanType `json:"scan_type"`
+}
+
+func IsValidScanType(t ScanType) bool <span class="cov0" title="0">{
+        switch t </span>{
+        case ScanTypeDNS,
+                ScanTypeWHOIS,
+                ScanTypeSubdomain,
+                ScanTypeCertTrans,
+                ScanTypeASN,
+                ScanTypeIP,
+                ScanTypePort,
+                ScanTypeSSL,
+                ScanTypeTech,
+                ScanTypeAll:<span class="cov0" title="0">
+                return true</span>
+        default:<span class="cov0" title="0">
+                return false</span>
+        }
+}</pre>
+		
+		<pre class="file" id="file8" style="display: none">package service
+
+import (
+        "mini-asm/internal/model"
+        "mini-asm/internal/storage"
+        "time"
+        "fmt"
+        "strings"
+        "github.com/google/uuid"
+)
+
+// AssetService handles business logic for asset operations
+// It sits between handlers (HTTP layer) and storage (data layer)
+type AssetService struct {
+        storage storage.Storage // Dependency injection - any Storage implementation
+}
+
+// NewAssetService creates a new asset service
+// Takes Storage interface - can be memory, database, or mock
+func NewAssetService(storage storage.Storage) *AssetService <span class="cov8" title="1">{
+        return &amp;AssetService{
+                storage: storage,
+        }
+}</span>
+
+// CreateAsset creates a new asset with validation
+// Returns the created asset or an error
+func (s *AssetService) CreateAsset(name, assetType string) (*model.Asset, error) <span class="cov8" title="1">{
+        // Validation - business rules enforcement
+        if name == "" </span><span class="cov8" title="1">{
+                return nil, model.ErrEmptyName
+        }</span>
+
+        <span class="cov8" title="1">if !model.IsValidType(assetType) </span><span class="cov8" title="1">{
+                return nil, model.ErrInvalidType
+        }</span>
+
+        // Business logic - create asset with defaults
+        <span class="cov8" title="1">asset := &amp;model.Asset{
+                ID:        uuid.New().String(), // Auto-generate UUID
+                Name:      name,
+                Type:      assetType,
+                Status:    model.StatusActive, // Default status
+                CreatedAt: time.Now(),
+                UpdatedAt: time.Now(),
+        }
+
+        // Delegate to storage layer
+        if err := s.storage.Create(asset); err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return asset, nil</span>
+}
+
+// GetAllAssets retrieves all assets
+func (s *AssetService) GetAllAssets() ([]*model.Asset, error) <span class="cov0" title="0">{
+        return s.storage.GetAll()
+}</span>
+
+// GetAssetByID retrieves a single asset by ID
+func (s *AssetService) GetAssetByID(id string) (*model.Asset, error) <span class="cov0" title="0">{
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+
+        <span class="cov0" title="0">return s.storage.GetByID(id)</span>
+}
+
+// UpdateAsset updates an existing asset
+// Only updates provided fields (partial update)
+func (s *AssetService) UpdateAsset(id string, name, assetType, status string) (*model.Asset, error) <span class="cov0" title="0">{
+        // Validate ID
+        if id == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+
+        // Get existing asset
+        <span class="cov0" title="0">existing, err := s.storage.GetByID(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        // Apply updates (only if provided)
+        <span class="cov0" title="0">if name != "" </span><span class="cov0" title="0">{
+                existing.Name = name
+        }</span>
+
+        <span class="cov0" title="0">if assetType != "" </span><span class="cov0" title="0">{
+                if !model.IsValidType(assetType) </span><span class="cov0" title="0">{
+                        return nil, model.ErrInvalidType
+                }</span>
+                <span class="cov0" title="0">existing.Type = assetType</span>
+        }
+
+        <span class="cov0" title="0">if status != "" </span><span class="cov0" title="0">{
+                if !model.IsValidStatus(status) </span><span class="cov0" title="0">{
+                        return nil, model.ErrInvalidStatus
+                }</span>
+                <span class="cov0" title="0">existing.Status = status</span>
+        }
+
+        // Update timestamp
+        <span class="cov0" title="0">existing.UpdatedAt = time.Now()
+
+        // Save to storage
+        if err := s.storage.Update(id, existing); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return existing, nil</span>
+}
+
+// DeleteAsset removes an asset
+func (s *AssetService) DeleteAsset(id string) error <span class="cov0" title="0">{
+        if id == "" </span><span class="cov0" title="0">{
+                return model.ErrInvalidInput
+        }</span>
+
+        <span class="cov0" title="0">return s.storage.Delete(id)</span>
+}
+
+// FilterAssets returns assets matching criteria
+func (s *AssetService) FilterAssets(assetType, status string) ([]*model.Asset, error) <span class="cov0" title="0">{
+        // Validate filters if provided
+        if assetType != "" &amp;&amp; !model.IsValidType(assetType) </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidType
+        }</span>
+
+        <span class="cov0" title="0">if status != "" &amp;&amp; !model.IsValidStatus(status) </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidStatus
+        }</span>
+
+        <span class="cov0" title="0">return s.storage.Filter(assetType, status)</span>
+}
+
+// SearchAssets finds assets by name
+func (s *AssetService) SearchAssets(query string) ([]*model.Asset, error) <span class="cov0" title="0">{
+        query = strings.TrimSpace(query)
+        
+        if query == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+
+        <span class="cov0" title="0">return s.storage.Search(query)</span>
+}
+
+func (s *AssetService) GetStats() (*model.AssetStats, error) <span class="cov0" title="0">{
+        return s.storage.GetStats()
+}</span>
+
+func (s *AssetService) Count(assetType, status string) (*model.AssetCountResponse, error) <span class="cov0" title="0">{
+        if assetType != "" &amp;&amp; !model.IsValidType(assetType) </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidType
+        }</span>
+
+        <span class="cov0" title="0">if status != "" &amp;&amp; !model.IsValidStatus(status) </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidStatus
+        }</span>
+
+        <span class="cov0" title="0">result, err := s.storage.Count(assetType, status)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return result, nil</span>
+}
+
+func (s *AssetService) BatchCreateAssets(req *model.BatchCreateAssetsRequest) (*model.BatchCreateAssetsResponse, error) <span class="cov0" title="0">{
+        if req == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("request body is required")
+        }</span>
+
+        <span class="cov0" title="0">if len(req.Assets) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("assets list cannot be empty")
+        }</span>
+
+        <span class="cov0" title="0">if len(req.Assets) &gt; 100 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("maximum 100 assets per request")
+        }</span>
+
+        <span class="cov0" title="0">assets := make([]*model.Asset, 0, len(req.Assets))
+
+        for _, item := range req.Assets </span><span class="cov0" title="0">{
+                if item.Name == "" </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("asset name is required")
+                }</span>
+
+                <span class="cov0" title="0">if item.Type == "" </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("asset type is required")
+                }</span>
+
+                <span class="cov0" title="0">if item.Type != "domain" &amp;&amp; item.Type != "ip" &amp;&amp; item.Type != "service" </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("invalid asset type: %s", item.Type)
+                }</span>
+
+                <span class="cov0" title="0">now := time.Now()
+
+                asset := &amp;model.Asset{
+                        ID:        uuid.New().String(),
+                        Name:      item.Name,
+                        Type:      item.Type,
+                        Status:    "active",
+                        CreatedAt: now,
+                        UpdatedAt: now,
+                }
+
+                assets = append(assets, asset)</span>
+        }
+
+        <span class="cov0" title="0">ids, err := s.storage.BatchCreate(assets)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;model.BatchCreateAssetsResponse{
+                Created: len(ids),
+                IDs:     ids,
+        }, nil</span>
+}
+
+func (s *AssetService) BatchDeleteAssets(ids []string) (*model.BatchDeleteAssetsResponse, error) <span class="cov0" title="0">{
+        if len(ids) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("ids query param is required")
+        }</span>
+
+        <span class="cov0" title="0">validIDs := make([]string, 0, len(ids))
+        notFoundFromInvalid := 0
+
+        for _, id := range ids </span><span class="cov0" title="0">{
+                id = strings.TrimSpace(id)
+                if id == "" </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">if _, err := uuid.Parse(id); err != nil </span><span class="cov0" title="0">{
+                        notFoundFromInvalid++
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">validIDs = append(validIDs, id)</span>
+        }
+
+        <span class="cov0" title="0">if len(validIDs) == 0 </span><span class="cov0" title="0">{
+                return &amp;model.BatchDeleteAssetsResponse{
+                        Deleted:  0,
+                        NotFound: notFoundFromInvalid,
+                }, nil
+        }</span>
+
+        <span class="cov0" title="0">resp, err := s.storage.BatchDelete(validIDs)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">resp.NotFound += notFoundFromInvalid
+        return resp, nil</span>
+}
+
+
+/*
+🎓 NOTES:
+
+1. Service Layer Responsibilities:
+   ✅ Business logic
+   ✅ Validation
+   ✅ Orchestration (coordinate multiple operations)
+   ✅ Default values
+   ❌ HTTP concerns (status codes, JSON)
+   ❌ Database details (SQL, queries)
+
+2. Dependency Injection:
+   func NewAssetService(storage storage.Storage) *AssetService
+
+   Q: Tại sao không dùng global variable?
+   A: Testability! Có thể inject mock storage trong tests
+
+   Example:
+   // Production
+   service := NewAssetService(memory.NewMemoryStorage())
+
+   // Testing
+   service := NewAssetService(&amp;MockStorage{})
+
+3. Validation Strategy:
+   - Validate BEFORE business logic
+   - Return specific errors (ErrEmptyName, ErrInvalidType)
+   - Handler layer maps to HTTP status codes
+
+4. Business Logic Examples:
+   - Auto-generate UUID
+   - Set default status = active
+   - Auto-set timestamps
+   - Partial updates (only update provided fields)
+
+5. Error Propagation:
+   if err := s.storage.Create(asset); err != nil {
+       return nil, err  // Let caller handle
+   }
+
+   Q: Tại sao không handle error ở đây?
+   A: Service không biết context (HTTP? CLI? gRPC?)
+      Handler layer sẽ decide status code
+
+6. Comparison với "Fat Controller":
+
+   ❌ BAD (All in handler):
+   func CreateAssetHandler(w, r) {
+       // Parse JSON
+       // Validate
+       // Generate UUID
+       // Set defaults
+       // Save to DB
+       // Return response
+   }
+   → Hard to test, hard to reuse
+
+   ✅ GOOD (Layered):
+   Handler: Parse JSON, call service, return HTTP response
+   Service: Validate, business logic
+   Storage: Data persistence
+   → Easy to test each layer, reusable logic
+
+7. UUID Generation:
+   uuid.New().String() → "550e8400-e29b-41d4-a716-446655440000"
+   - Globally unique
+   - No need for database auto-increment
+   - Can generate offline
+   - URL-safe
+
+8. Timestamps:
+   CreatedAt: time.Now()  // Set once
+   UpdatedAt: time.Now()  // Update on every change
+
+   Q: Tại sao không dùng int64 (Unix timestamp)?
+   A: time.Time có timezone, human-readable, JSON support
+
+📝 TESTING SERVICE LAYER:
+
+func TestCreateAsset(t *testing.T) {
+    // Arrange
+    mockStorage := &amp;MockStorage{}
+    service := NewAssetService(mockStorage)
+
+    // Act
+    asset, err := service.CreateAsset("example.com", "domain")
+
+    // Assert
+    assert.NoError(t, err)
+    assert.NotEmpty(t, asset.ID)
+    assert.Equal(t, "active", asset.Status) // Default
+}
+
+❓ QUESTIONS TO ASK:
+
+1. Tại sao CreateAsset return (*Asset, error) thay vì chỉ error?
+   → Need to return created asset with ID to client
+
+2. Tại sao UpdateAsset là partial update?
+   → Flexible - client chỉ gửi fields muốn update
+
+3. Service layer có nên biết về HTTP không?
+   → KHÔNG! Separation of concerns
+
+4. Làm sao test service layer mà không cần database?
+   → Mock storage! (Buổi 5)
+*/</pre>
+		
+		<pre class="file" id="file9" style="display: none">package service
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "net"
+        "net/http"
+        "strings"
+        "time"
+
+        "mini-asm/internal/model"
+)
+
+type IPScanner struct {
+        svc *ScanService
+}
+
+func NewIPScanner(svc *ScanService) *IPScanner <span class="cov8" title="1">{
+        return &amp;IPScanner{svc: svc}
+}</span>
+
+type ipAPIResponse struct {
+        Status     string  `json:"status"`
+        Country    string  `json:"country"`
+        CountryCode string `json:"countryCode"`
+        RegionName string  `json:"regionName"`
+        City       string  `json:"city"`
+        Lat        float64 `json:"lat"`
+        Lon        float64 `json:"lon"`
+        ISP        string  `json:"isp"`
+        Org        string  `json:"org"`
+        AS         string  `json:"as"`
+        ASName     string  `json:"asname"`
+        Reverse    string  `json:"reverse"`
+        Message    string  `json:"message"`
+}
+
+func (s *IPScanner) Scan(ctx context.Context, asset *model.Asset, job *model.ScanJob) (int, error) <span class="cov8" title="1">{
+        ipStr := strings.TrimSpace(asset.Name)
+        if net.ParseIP(ipStr) == nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("invalid IP address")
+        }</span>
+
+        <span class="cov8" title="1">reverseDNS := ""
+        names, err := net.LookupAddr(ipStr)
+        if err == nil &amp;&amp; len(names) &gt; 0 </span><span class="cov8" title="1">{
+                reverseDNS = strings.TrimSuffix(names[0], ".")
+        }</span>
+
+        // private/localhost: không gọi API ngoài
+        <span class="cov8" title="1">if isPrivateOrLocalIP(ipStr) </span><span class="cov8" title="1">{
+                payload := map[string]interface{}{
+                        "ip_address": ipStr,
+                        "geolocation": map[string]interface{}{
+                                "country":      "Local / Private",
+                                "country_code": "LOCAL",
+                                "city":         "",
+                                "region":       "",
+                                "latitude":     0,
+                                "longitude":    0,
+                                "isp":          "Local Network",
+                                "org":          "Local Network",
+                        },
+                        "asn": map[string]interface{}{
+                                "number":      0,
+                                "name":        "PRIVATE",
+                                "description": "Private or loopback address",
+                        },
+                        "reverse_dns": reverseDNS,
+                        "created_at":  time.Now().UTC(),
+                }
+
+                if err := s.svc.saveResult(job, "ip", payload); err != nil </span><span class="cov0" title="0">{
+                        return 0, err
+                }</span>
+                <span class="cov8" title="1">return 1, nil</span>
+        }
+
+        <span class="cov0" title="0">req, err := http.NewRequestWithContext(
+                ctx,
+                http.MethodGet,
+                fmt.Sprintf("http://ip-api.com/json/%s?fields=status,message,country,countryCode,regionName,city,lat,lon,isp,org,as,asname,reverse", ipStr),
+                nil,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov0" title="0">resp, err := s.svc.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("ip lookup failed: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        var data ipAPIResponse
+        if err := json.NewDecoder(resp.Body).Decode(&amp;data); err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("decode ip lookup failed: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if data.Status != "success" </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("ip lookup failed: %s", data.Message)
+        }</span>
+
+        <span class="cov0" title="0">asnNumber := 0
+        asnName := ""
+        if strings.HasPrefix(data.AS, "AS") </span><span class="cov0" title="0">{
+                var num int
+                fmt.Sscanf(data.AS, "AS%d", &amp;num)
+                asnNumber = num
+        }</span>
+        <span class="cov0" title="0">asnName = data.ASName
+        if asnName == "" </span><span class="cov0" title="0">{
+                asnName = data.AS
+        }</span>
+
+        <span class="cov0" title="0">payload := map[string]interface{}{
+                "ip_address": ipStr,
+                "geolocation": map[string]interface{}{
+                        "country":      data.Country,
+                        "country_code": data.CountryCode,
+                        "city":         data.City,
+                        "region":       data.RegionName,
+                        "latitude":     data.Lat,
+                        "longitude":    data.Lon,
+                        "isp":          data.ISP,
+                        "org":          data.Org,
+                },
+                "asn": map[string]interface{}{
+                        "number":      asnNumber,
+                        "name":        asnName,
+                        "description": data.AS,
+                },
+                "reverse_dns": reverseDNS,
+                "created_at":  time.Now().UTC(),
+        }
+
+        if err := s.svc.saveResult(job, "ip", payload); err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov0" title="0">return 1, nil</span>
+}</pre>
+		
+		<pre class="file" id="file10" style="display: none">package service
+
+import (
+        "context"
+        "fmt"
+        "net"
+        "time"
+
+        "mini-asm/internal/model"
+)
+
+type PortScanner struct {
+        svc *ScanService
+}
+
+func NewPortScanner(svc *ScanService) *PortScanner <span class="cov8" title="1">{
+        return &amp;PortScanner{svc: svc}
+}</span>
+
+type openPortResult struct {
+        Port     int    `json:"port"`
+        Protocol string `json:"protocol"`
+        State    string `json:"state"`
+        Service  string `json:"service"`
+        Version  string `json:"version"`
+}
+
+func guessService(port int) string <span class="cov8" title="1">{
+        switch port </span>{
+        case 22:<span class="cov8" title="1">
+                return "ssh"</span>
+        case 80:<span class="cov0" title="0">
+                return "http"</span>
+        case 443:<span class="cov0" title="0">
+                return "https"</span>
+        case 3306:<span class="cov8" title="1">
+                return "mysql"</span>
+        case 5432:<span class="cov8" title="1">
+                return "postgresql"</span>
+        case 6379:<span class="cov0" title="0">
+                return "redis"</span>
+        case 8080:<span class="cov8" title="1">
+                return "http-alt"</span>
+        default:<span class="cov0" title="0">
+                return ""</span>
+        }
+}
+
+func (s *PortScanner) Scan(ctx context.Context, asset *model.Asset, job *model.ScanJob) (int, error) <span class="cov8" title="1">{
+        ipStr := asset.Name
+        if net.ParseIP(ipStr) == nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("invalid IP address")
+        }</span>
+
+        <span class="cov8" title="1">if !isPrivateOrLocalIP(ipStr) </span><span class="cov0" title="0">{
+                return 0, model.ErrForbiddenScan
+        }</span>
+
+        <span class="cov8" title="1">start := time.Now()
+        ports := []int{22, 80, 443, 8080, 3306, 5432, 6379}
+        openPorts := make([]openPortResult, 0)
+
+        dialer := &amp;net.Dialer{Timeout: 700 * time.Millisecond}
+
+        for _, port := range ports </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        return 0, ctx.Err()</span>
+                default:<span class="cov8" title="1"></span>
+                }
+
+                <span class="cov8" title="1">conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", ipStr, port))
+                if err == nil </span><span class="cov8" title="1">{
+                        _ = conn.Close()
+                        openPorts = append(openPorts, openPortResult{
+                                Port:     port,
+                                Protocol: "tcp",
+                                State:    "open",
+                                Service:  guessService(port),
+                                Version:  "",
+                        })
+                }</span>
+        }
+
+        <span class="cov8" title="1">payload := map[string]interface{}{
+                "ip_address":       ipStr,
+                "open_ports":       openPorts,
+                "closed_ports":     len(ports) - len(openPorts),
+                "total_scanned":    len(ports),
+                "scan_duration_ms": time.Since(start).Milliseconds(),
+                "created_at":       time.Now().UTC(),
+        }
+
+        if err := s.svc.saveResult(job, "port", payload); err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">return 1, nil</span>
+}</pre>
+		
+		<pre class="file" id="file11" style="display: none">package service
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "log"
+        "net"
+        "net/http"
+        "sort"
+        "strings"
+        "time"
+        "io"
+        "errors"
+        
+
+        "mini-asm/internal/model"
+        "mini-asm/internal/storage"
+
+        "github.com/google/uuid"
+)
+
+type ScanService struct {
+        assetStorage storage.Storage
+        scanStorage  storage.ScanStorage
+        httpClient   *http.Client
+        scanners     map[model.ScanType]Scanner
+}
+
+// helper chung
+func isPrivateOrLocalIP(ipStr string) bool <span class="cov8" title="1">{
+        ip := net.ParseIP(strings.TrimSpace(ipStr))
+        if ip == nil </span><span class="cov0" title="0">{
+                return false
+        }</span>
+        <span class="cov8" title="1">if ip.IsLoopback() </span><span class="cov8" title="1">{
+                return true
+        }</span>
+
+        <span class="cov0" title="0">privateCIDRs := []string{
+                "10.0.0.0/8",
+                "172.16.0.0/12",
+                "192.168.0.0/16",
+        }
+
+        for _, cidr := range privateCIDRs </span><span class="cov0" title="0">{
+                _, block, _ := net.ParseCIDR(cidr)
+                if block.Contains(ip) </span><span class="cov0" title="0">{
+                        return true
+                }</span>
+        }
+        <span class="cov0" title="0">return false</span>
+}
+
+func NewScanService(assetStorage storage.Storage, scanStorage storage.ScanStorage) *ScanService <span class="cov8" title="1">{
+        s := &amp;ScanService{
+                assetStorage: assetStorage,
+                scanStorage:  scanStorage,
+                httpClient: &amp;http.Client{
+                        Timeout: 15 * time.Second,
+                },
+                scanners: make(map[model.ScanType]Scanner),
+        }
+
+        // existing scanners giữ nguyên logic cũ trong service
+        s.scanners[model.ScanTypeIP] = NewIPScanner(s)
+        s.scanners[model.ScanTypePort] = NewPortScanner(s)
+        s.scanners[model.ScanTypeSSL] = NewSSLScanner(s)
+        s.scanners[model.ScanTypeTech] = NewTechScanner(s)
+
+        return s
+}</span>
+
+func (s *ScanService) StartScan(assetID string, scanType model.ScanType) (*model.ScanJob, error) <span class="cov0" title="0">{
+        asset, err := s.assetStorage.GetByID(assetID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">if !model.IsValidScanType(scanType) </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid scan type: %s", scanType)
+        }</span>
+
+        <span class="cov0" title="0">if !isScanAllowedForAssetType(scanType, asset.Type) </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("scan type %s does not support asset type %s", scanType, asset.Type)
+        }</span>
+
+        <span class="cov0" title="0">now := time.Now().UTC()
+        job := &amp;model.ScanJob{
+                ID:        uuid.New().String(),
+                AssetID:   assetID,
+                ScanType:  scanType,
+                Status:    model.ScanStatusPending,
+                StartedAt: now,
+                CreatedAt: now,
+                Error:     "",
+                Results:   0,
+        }
+
+        if err := s.scanStorage.CreateScanJob(job); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">go s.performScan(asset, job)
+
+        return job, nil</span>
+}
+
+
+func (s *ScanService) GetScanJob(jobID string) (*model.ScanJob, error) <span class="cov0" title="0">{
+        if strings.TrimSpace(jobID) == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+        <span class="cov0" title="0">return s.scanStorage.GetScanJob(jobID)</span>
+}
+
+func (s *ScanService) GetScanResults(jobID string) (*model.ScanResultsResponse, error) <span class="cov0" title="0">{
+        if strings.TrimSpace(jobID) == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+
+        <span class="cov0" title="0">job, err := s.scanStorage.GetScanJob(jobID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">results, err := s.scanStorage.ListScanResultsByJob(jobID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return &amp;model.ScanResultsResponse{
+                Job:     job,
+                Results: results,
+        }, nil</span>
+}
+
+func (s *ScanService) ListAssetScans(assetID string) ([]*model.ScanJob, error) <span class="cov0" title="0">{
+        if strings.TrimSpace(assetID) == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+
+        <span class="cov0" title="0">if _, err := s.assetStorage.GetByID(assetID); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return s.scanStorage.ListScanJobsByAsset(assetID)</span>
+}
+
+func (s *ScanService) ListAssetResults(assetID string) ([]*model.ScanResult, error) <span class="cov0" title="0">{
+        if strings.TrimSpace(assetID) == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+
+        <span class="cov0" title="0">if _, err := s.assetStorage.GetByID(assetID); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return s.scanStorage.ListScanResultsByAsset(assetID)</span>
+}
+
+func (s *ScanService) ListAssetDNSResults(assetID string) ([]*model.ScanResult, error) <span class="cov0" title="0">{
+        if strings.TrimSpace(assetID) == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+
+        <span class="cov0" title="0">if _, err := s.assetStorage.GetByID(assetID); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return s.scanStorage.ListScanResultsByAssetAndTypes(assetID, []string{
+                "dns_a",
+                "dns_mx",
+                "dns_ns",
+        })</span>
+}
+
+func (s *ScanService) ListAssetWhoisResults(assetID string) ([]*model.ScanResult, error) <span class="cov0" title="0">{
+        if strings.TrimSpace(assetID) == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+
+        <span class="cov0" title="0">if _, err := s.assetStorage.GetByID(assetID); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return s.scanStorage.ListScanResultsByAssetAndTypes(assetID, []string{
+                "whois",
+        })</span>
+}
+
+func (s *ScanService) ListAssetSubdomainResults(assetID string) ([]*model.ScanResult, error) <span class="cov0" title="0">{
+        if strings.TrimSpace(assetID) == "" </span><span class="cov0" title="0">{
+                return nil, model.ErrInvalidInput
+        }</span>
+
+        <span class="cov0" title="0">if _, err := s.assetStorage.GetByID(assetID); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return s.scanStorage.ListScanResultsByAssetAndTypes(assetID, []string{
+                "subdomain",
+        })</span>
+}
+
+func (s *ScanService) performScan(asset *model.Asset, job *model.ScanJob) <span class="cov0" title="0">{
+        job.Status = model.ScanStatusRunning
+        job.Error = ""
+        _ = s.scanStorage.UpdateScanJob(job)
+
+        log.Printf("[scan] start job=%s type=%s asset=%s", job.ID, job.ScanType, asset.Name)
+
+        var totalResults int
+        var errs []string
+
+        run := func(fn func(*model.Asset, *model.ScanJob) (int, error)) </span><span class="cov0" title="0">{
+                n, err := fn(asset, job)
+                totalResults += n
+                if err != nil </span><span class="cov0" title="0">{
+                        errs = append(errs, err.Error())
+                }</span>
+        }
+
+        <span class="cov0" title="0">switch job.ScanType </span>{
+        case model.ScanTypeDNS:<span class="cov0" title="0">
+                run(s.runDNSScan)</span>
+        case model.ScanTypeWHOIS:<span class="cov0" title="0">
+                run(s.runWHOISScan)</span>
+        case model.ScanTypeSubdomain:<span class="cov0" title="0">
+                run(s.runSubdomainScan)</span>
+        case model.ScanTypeCertTrans:<span class="cov0" title="0">
+                run(s.runCertTransScan)</span>
+        case model.ScanTypeASN:<span class="cov0" title="0">
+                run(s.runASNScan)</span>
+        case model.ScanTypeIP, model.ScanTypePort, model.ScanTypeSSL, model.ScanTypeTech:<span class="cov0" title="0">
+                scanner, ok := s.scanners[job.ScanType]
+                if !ok </span><span class="cov0" title="0">{
+                        errs = append(errs, fmt.Sprintf("scanner not registered for %s", job.ScanType))
+                        break</span>
+                }
+                <span class="cov0" title="0">ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+                defer cancel()
+
+                n, err := scanner.Scan(ctx, asset, job)
+                totalResults += n
+                if err != nil </span><span class="cov0" title="0">{
+                        errs = append(errs, err.Error())
+                }</span>
+        case model.ScanTypeAll:<span class="cov0" title="0">
+                run(s.runDNSScan)
+                run(s.runWHOISScan)
+                run(s.runSubdomainScan)
+                run(s.runCertTransScan)</span>
+        default:<span class="cov0" title="0">
+                errs = append(errs, fmt.Sprintf("unsupported scan type: %s", job.ScanType))</span>
+        }
+
+        <span class="cov0" title="0">now := time.Now().UTC()
+        job.EndedAt = &amp;now
+        job.Results = totalResults
+
+        switch </span>{
+        case len(errs) == 0:<span class="cov0" title="0">
+                job.Status = model.ScanStatusCompleted
+                job.Error = ""</span>
+        case totalResults &gt; 0:<span class="cov0" title="0">
+                job.Status = model.ScanStatusPartial
+                job.Error = strings.Join(errs, "; ")</span>
+        default:<span class="cov0" title="0">
+                job.Status = model.ScanStatusFailed
+                job.Error = strings.Join(errs, "; ")</span>
+        }
+
+        <span class="cov0" title="0">_ = s.scanStorage.UpdateScanJob(job)
+        log.Printf("[scan] finish job=%s type=%s status=%s results=%d err=%s", job.ID, job.ScanType, job.Status, job.Results, job.Error)</span>
+}
+
+func isScanAllowedForAssetType(scanType model.ScanType, assetType string) bool <span class="cov0" title="0">{
+        switch scanType </span>{
+        case model.ScanTypeASN, model.ScanTypeIP, model.ScanTypePort:<span class="cov0" title="0">
+                return assetType == model.TypeIP</span>
+        case model.ScanTypeDNS, model.ScanTypeWHOIS, model.ScanTypeSubdomain, model.ScanTypeCertTrans, model.ScanTypeSSL, model.ScanTypeTech, model.ScanTypeAll:<span class="cov0" title="0">
+                return assetType == model.TypeDomain</span>
+        default:<span class="cov0" title="0">
+                return false</span>
+        }
+}
+
+func (s *ScanService) saveResult(job *model.ScanJob, resultType string, payload interface{}) error <span class="cov8" title="1">{
+        b, err := json.Marshal(payload)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">return s.scanStorage.CreateScanResult(&amp;model.ScanResult{
+                ID:         uuid.New().String(),
+                ScanJobID:  job.ID,
+                AssetID:    job.AssetID,
+                ResultType: resultType,
+                Data:       b,
+                CreatedAt:  time.Now().UTC(),
+        })</span>
+}
+
+func (s *ScanService) runDNSScan(asset *model.Asset, job *model.ScanJob) (int, error) <span class="cov0" title="0">{
+        var total int
+        var errs []string
+
+        ips, err := net.LookupIP(asset.Name)
+        if err == nil </span><span class="cov0" title="0">{
+                for _, ip := range ips </span><span class="cov0" title="0">{
+                        if saveErr := s.saveResult(job, "dns_a", map[string]interface{}{
+                                "name":  asset.Name,
+                                "value": ip.String(),
+                        }); saveErr != nil </span><span class="cov0" title="0">{
+                                errs = append(errs, saveErr.Error())
+                        }</span> else<span class="cov0" title="0"> {
+                                total++
+                        }</span>
+                }
+        } else<span class="cov0" title="0"> {
+                errs = append(errs, "lookup A/AAAA failed: "+err.Error())
+        }</span>
+
+        <span class="cov0" title="0">mxs, err := net.LookupMX(asset.Name)
+        if err == nil </span><span class="cov0" title="0">{
+                for _, mx := range mxs </span><span class="cov0" title="0">{
+                        if saveErr := s.saveResult(job, "dns_mx", map[string]interface{}{
+                                "name":     asset.Name,
+                                "host":     strings.TrimSuffix(mx.Host, "."),
+                                "pref":     mx.Pref,
+                                "priority": mx.Pref,
+                        }); saveErr != nil </span><span class="cov0" title="0">{
+                                errs = append(errs, saveErr.Error())
+                        }</span> else<span class="cov0" title="0"> {
+                                total++
+                        }</span>
+                }
+        } else<span class="cov0" title="0"> {
+                errs = append(errs, "lookup MX failed: "+err.Error())
+        }</span>
+
+        <span class="cov0" title="0">nss, err := net.LookupNS(asset.Name)
+        if err == nil </span><span class="cov0" title="0">{
+                for _, ns := range nss </span><span class="cov0" title="0">{
+                        if saveErr := s.saveResult(job, "dns_ns", map[string]interface{}{
+                                "name": asset.Name,
+                                "host": strings.TrimSuffix(ns.Host, "."),
+                        }); saveErr != nil </span><span class="cov0" title="0">{
+                                errs = append(errs, saveErr.Error())
+                        }</span> else<span class="cov0" title="0"> {
+                                total++
+                        }</span>
+                }
+        } else<span class="cov0" title="0"> {
+                errs = append(errs, "lookup NS failed: "+err.Error())
+        }</span>
+
+        <span class="cov0" title="0">if total == 0 &amp;&amp; len(errs) &gt; 0 </span><span class="cov0" title="0">{
+                return 0, errors.New(strings.Join(errs, "; "))
+        }</span>
+        <span class="cov0" title="0">if len(errs) &gt; 0 </span><span class="cov0" title="0">{
+                return total, errors.New(strings.Join(errs, "; "))
+        }</span>
+
+        <span class="cov0" title="0">return total, nil</span>
+}
+
+func (s *ScanService) runWHOISScan(asset *model.Asset, job *model.ScanJob) (int, error) <span class="cov0" title="0">{
+        server := getWhoisServer(asset.Name)
+        raw, err := queryWhois(server, asset.Name)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov0" title="0">payload := map[string]interface{}{
+                "domain":    asset.Name,
+                "server":    server,
+                "registrar": extractWhoisField(raw, []string{"Registrar:", "registrar:"}),
+                "raw_data":  raw,
+        }
+
+        if err := s.saveResult(job, "whois", payload); err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov0" title="0">return 1, nil</span>
+}
+
+func (s *ScanService) runSubdomainScan(asset *model.Asset, job *model.ScanJob) (int, error) <span class="cov0" title="0">{
+        wordlist := []string{
+                "www", "api", "mail", "dev", "staging", "app", "admin", "blog", "test", "portal",
+        }
+
+        total := 0
+        for _, sub := range wordlist </span><span class="cov0" title="0">{
+                name := sub + "." + asset.Name
+                ips, err := net.LookupIP(name)
+                if err != nil || len(ips) == 0 </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">values := make([]string, 0, len(ips))
+                for _, ip := range ips </span><span class="cov0" title="0">{
+                        values = append(values, ip.String())
+                }</span>
+
+                <span class="cov0" title="0">if err := s.saveResult(job, "subdomain", map[string]interface{}{
+                        "name": name,
+                        "ips":  values,
+                }); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov0" title="0">total++</span>
+        }
+
+        <span class="cov0" title="0">if total == 0 </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("no subdomains found")
+        }</span>
+
+        <span class="cov0" title="0">return total, nil</span>
+}
+
+type crtShItem struct {
+        NameValue string `json:"name_value"`
+        Issuer    string `json:"issuer_name"`
+}
+
+func (s *ScanService) runCertTransScan(asset *model.Asset, job *model.ScanJob) (int, error) <span class="cov0" title="0">{
+        url := fmt.Sprintf("https://crt.sh/?q=%%25.%s&amp;output=json", asset.Name)
+
+        req, err := http.NewRequest(http.MethodGet, url, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov0" title="0">resp, err := s.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("crt.sh returned status %d", resp.StatusCode)
+        }</span>
+
+        <span class="cov0" title="0">body, err := io.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov0" title="0">var items []crtShItem
+        if err := json.Unmarshal(body, &amp;items); err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov0" title="0">seen := map[string]struct{}{}
+        var names []string
+
+        for _, item := range items </span><span class="cov0" title="0">{
+                parts := strings.Split(item.NameValue, "\n")
+                for _, part := range parts </span><span class="cov0" title="0">{
+                        name := strings.TrimSpace(strings.TrimPrefix(part, "*."))
+                        if name == "" </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+                        <span class="cov0" title="0">if !strings.HasSuffix(name, asset.Name) </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+                        <span class="cov0" title="0">if _, ok := seen[name]; ok </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+                        <span class="cov0" title="0">seen[name] = struct{}{}
+                        names = append(names, name)</span>
+                }
+        }
+
+        <span class="cov0" title="0">sort.Strings(names)
+
+        total := 0
+        for _, name := range names </span><span class="cov0" title="0">{
+                if err := s.saveResult(job, "cert_trans", map[string]interface{}{
+                        "name":   name,
+                        "source": "crt.sh",
+                }); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov0" title="0">total++</span>
+        }
+
+        <span class="cov0" title="0">if total == 0 </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("no certificate transparency results found")
+        }</span>
+
+        <span class="cov0" title="0">return total, nil</span>
+}
+
+func (s *ScanService) runASNScan(asset *model.Asset, job *model.ScanJob) (int, error) <span class="cov0" title="0">{
+        raw, err := queryWhois("whois.cymru.com", "begin\nverbose\n"+asset.Name+"\nend\n")
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov0" title="0">lines := strings.Split(strings.TrimSpace(raw), "\n")
+        if len(lines) &lt; 2 </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("unexpected ASN response")
+        }</span>
+
+        <span class="cov0" title="0">var dataLine string
+        for _, line := range lines[1:] </span><span class="cov0" title="0">{
+                line = strings.TrimSpace(line)
+                if line != "" </span><span class="cov0" title="0">{
+                        dataLine = line
+                        break</span>
+                }
+        }
+
+        <span class="cov0" title="0">if dataLine == "" </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("no ASN data found")
+        }</span>
+
+        <span class="cov0" title="0">parts := strings.Split(dataLine, "|")
+        for i := range parts </span><span class="cov0" title="0">{
+                parts[i] = strings.TrimSpace(parts[i])
+        }</span>
+
+        <span class="cov0" title="0">payload := map[string]interface{}{
+                "raw": raw,
+        }
+
+        if len(parts) &gt;= 7 </span><span class="cov0" title="0">{
+                payload["asn"] = parts[0]
+                payload["ip"] = parts[1]
+                payload["bgp_prefix"] = parts[2]
+                payload["cc"] = parts[3]
+                payload["registry"] = parts[4]
+                payload["allocated"] = parts[5]
+                payload["as_name"] = parts[6]
+        }</span>
+
+        <span class="cov0" title="0">if err := s.saveResult(job, "asn", payload); err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov0" title="0">return 1, nil</span>
+}
+
+func getWhoisServer(domain string) string <span class="cov0" title="0">{
+        parts := strings.Split(domain, ".")
+        if len(parts) &lt; 2 </span><span class="cov0" title="0">{
+                return "whois.iana.org"
+        }</span>
+
+        <span class="cov0" title="0">tld := parts[len(parts)-1]
+        switch tld </span>{
+        case "com", "net":<span class="cov0" title="0">
+                return "whois.verisign-grs.com"</span>
+        case "org":<span class="cov0" title="0">
+                return "whois.pir.org"</span>
+        case "io":<span class="cov0" title="0">
+                return "whois.nic.io"</span>
+        case "dev", "app":<span class="cov0" title="0">
+                return "whois.nic.google"</span>
+        case "info":<span class="cov0" title="0">
+                return "whois.afilias.net"</span>
+        default:<span class="cov0" title="0">
+                return "whois.iana.org"</span>
+        }
+}
+
+func queryWhois(server, query string) (string, error) <span class="cov0" title="0">{
+        conn, err := net.DialTimeout("tcp", net.JoinHostPort(server, "43"), 10*time.Second)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to connect WHOIS server %s: %w", server, err)
+        }</span>
+        <span class="cov0" title="0">defer conn.Close()
+
+        _ = conn.SetDeadline(time.Now().Add(15 * time.Second))
+
+        if _, err := conn.Write([]byte(query + "\r\n")); err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to send WHOIS query: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">b, err := io.ReadAll(conn)
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to read WHOIS response: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return string(b), nil</span>
+}
+
+func extractWhoisField(raw string, prefixes []string) string <span class="cov0" title="0">{
+        lines := strings.Split(raw, "\n")
+        for _, line := range lines </span><span class="cov0" title="0">{
+                for _, prefix := range prefixes </span><span class="cov0" title="0">{
+                        if strings.HasPrefix(strings.TrimSpace(line), prefix) </span><span class="cov0" title="0">{
+                                return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), prefix))
+                        }</span>
+                }
+        }
+        <span class="cov0" title="0">return ""</span>
+}</pre>
+		
+		<pre class="file" id="file12" style="display: none">package service
+
+import (
+        "context"
+        "crypto/tls"
+        "crypto/x509"
+        "fmt"
+        "net"
+        "strings"
+        "time"
+        "crypto/x509/pkix"
+
+        "mini-asm/internal/model"
+)
+
+type SSLScanner struct {
+        svc *ScanService
+}
+
+func NewSSLScanner(svc *ScanService) *SSLScanner <span class="cov8" title="1">{
+        return &amp;SSLScanner{svc: svc}
+}</span>
+
+func tlsVersionName(v uint16) string <span class="cov8" title="1">{
+        switch v </span>{
+        case tls.VersionTLS10:<span class="cov0" title="0">
+                return "TLS 1.0"</span>
+        case tls.VersionTLS11:<span class="cov0" title="0">
+                return "TLS 1.1"</span>
+        case tls.VersionTLS12:<span class="cov0" title="0">
+                return "TLS 1.2"</span>
+        case tls.VersionTLS13:<span class="cov8" title="1">
+                return "TLS 1.3"</span>
+        default:<span class="cov0" title="0">
+                return fmt.Sprintf("unknown(%d)", v)</span>
+        }
+}
+
+func cipherSuiteName(id uint16) string <span class="cov8" title="1">{
+        cs := tls.CipherSuiteName(id)
+        if cs == "" </span><span class="cov0" title="0">{
+                return fmt.Sprintf("unknown(%d)", id)
+        }</span>
+        <span class="cov8" title="1">return cs</span>
+}
+
+func certName(n pkix.Name) string <span class="cov0" title="0">{
+        return n.String()
+}</span>
+
+func isSelfSigned(cert *x509.Certificate) bool <span class="cov8" title="1">{
+        return cert.Subject.String() == cert.Issuer.String()
+}</span>
+
+func calcGrade(cert *x509.Certificate, tlsVersion string) (string, []string) <span class="cov8" title="1">{
+        issues := []string{}
+        now := time.Now()
+
+        if now.After(cert.NotAfter) </span><span class="cov0" title="0">{
+                issues = append(issues, "certificate expired")
+        }</span>
+        <span class="cov8" title="1">if isSelfSigned(cert) </span><span class="cov8" title="1">{
+                issues = append(issues, "self-signed certificate")
+        }</span>
+        <span class="cov8" title="1">if tlsVersion == "TLS 1.0" || tlsVersion == "TLS 1.1" </span><span class="cov0" title="0">{
+                issues = append(issues, "old TLS version")
+        }</span>
+
+        <span class="cov8" title="1">switch </span>{
+        case len(issues) == 0:<span class="cov0" title="0">
+                return "A", issues</span>
+        case len(issues) == 1 &amp;&amp; issues[0] == "self-signed certificate":<span class="cov8" title="1">
+                return "B", issues</span>
+        default:<span class="cov0" title="0">
+                return "C", issues</span>
+        }
+}
+
+func (s *SSLScanner) Scan(ctx context.Context, asset *model.Asset, job *model.ScanJob) (int, error) <span class="cov8" title="1">{
+        host := strings.TrimSpace(asset.Name)
+        if host == "" </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("empty host")
+        }</span>
+
+        <span class="cov8" title="1">dialer := &amp;net.Dialer{Timeout: 5 * time.Second}
+        conn, err := tls.DialWithDialer(dialer, "tcp", net.JoinHostPort(host, "443"), &amp;tls.Config{
+                ServerName:         host,
+                InsecureSkipVerify: true,
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("tls dial failed: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer conn.Close()
+
+        state := conn.ConnectionState()
+        if len(state.PeerCertificates) == 0 </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("no peer certificate")
+        }</span>
+
+        <span class="cov8" title="1">cert := state.PeerCertificates[0]
+        now := time.Now()
+        daysUntilExpiry := int(cert.NotAfter.Sub(now).Hours() / 24)
+
+        grade, issues := calcGrade(cert, tlsVersionName(state.Version))
+
+        payload := map[string]interface{}{
+                "domain": host,
+                "certificate": map[string]interface{}{
+                        "subject":           cert.Subject.String(),
+                        "issuer":            cert.Issuer.String(),
+                        "serial_number":     cert.SerialNumber.Text(16),
+                        "valid_from":        cert.NotBefore.UTC(),
+                        "valid_until":       cert.NotAfter.UTC(),
+                        "days_until_expiry": daysUntilExpiry,
+                        "is_expired":        now.After(cert.NotAfter),
+                        "is_self_signed":    isSelfSigned(cert),
+                        "san":               cert.DNSNames,
+                },
+                "connection": map[string]interface{}{
+                        "tls_version":  tlsVersionName(state.Version),
+                        "cipher_suite": cipherSuiteName(state.CipherSuite),
+                        "key_exchange": "",
+                },
+                "grade":      grade,
+                "issues":     issues,
+                "created_at": time.Now().UTC(),
+        }
+
+        if err := s.svc.saveResult(job, "ssl", payload); err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">return 1, nil</span>
+}</pre>
+		
+		<pre class="file" id="file13" style="display: none">package service
+
+import (
+        "context"
+        "fmt"
+        "io"
+        "net/http"
+        "regexp"
+        "strings"
+        "time"
+
+        "mini-asm/internal/model"
+)
+
+type TechScanner struct {
+        svc *ScanService
+}
+
+func NewTechScanner(svc *ScanService) *TechScanner <span class="cov8" title="1">{
+        return &amp;TechScanner{svc: svc}
+}</span>
+
+type detectedTech struct {
+        Name       string `json:"name"`
+        Category   string `json:"category"`
+        Version    string `json:"version"`
+        Confidence int    `json:"confidence"`
+}
+
+func (s *TechScanner) Scan(ctx context.Context, asset *model.Asset, job *model.ScanJob) (int, error) <span class="cov8" title="1">{
+        url := "https://" + strings.TrimSpace(asset.Name)
+
+        req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">resp, err := s.svc.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("http request failed: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
+        body := string(bodyBytes)
+
+        headers := map[string]string{}
+        for k, v := range resp.Header </span><span class="cov8" title="1">{
+                if len(v) &gt; 0 </span><span class="cov8" title="1">{
+                        headers[strings.ToLower(k)] = v[0]
+                }</span>
+        }
+
+        <span class="cov8" title="1">metaTags := map[string]string{}
+        reGenerator := regexp.MustCompile(`(?i)&lt;meta[^&gt;]+name=["']generator["'][^&gt;]+content=["']([^"']+)["']`)
+        reViewport := regexp.MustCompile(`(?i)&lt;meta[^&gt;]+name=["']viewport["'][^&gt;]+content=["']([^"']+)["']`)
+
+        if m := reGenerator.FindStringSubmatch(body); len(m) &gt; 1 </span><span class="cov8" title="1">{
+                metaTags["generator"] = m[1]
+        }</span>
+        <span class="cov8" title="1">if m := reViewport.FindStringSubmatch(body); len(m) &gt; 1 </span><span class="cov0" title="0">{
+                metaTags["viewport"] = m[1]
+        }</span>
+
+        <span class="cov8" title="1">techs := make([]detectedTech, 0)
+
+        server := strings.ToLower(headers["server"])
+        xPoweredBy := strings.ToLower(headers["x-powered-by"])
+
+        if strings.Contains(server, "nginx") </span><span class="cov8" title="1">{
+                techs = append(techs, detectedTech{"nginx", "Web Server", headers["server"], 100})
+        }</span>
+        <span class="cov8" title="1">if strings.Contains(server, "apache") </span><span class="cov0" title="0">{
+                techs = append(techs, detectedTech{"Apache", "Web Server", headers["server"], 100})
+        }</span>
+        <span class="cov8" title="1">if strings.Contains(server, "cloudflare") || headers["cf-ray"] != "" </span><span class="cov0" title="0">{
+                techs = append(techs, detectedTech{"Cloudflare", "CDN", "", 100})
+        }</span>
+        <span class="cov8" title="1">if strings.Contains(xPoweredBy, "express") </span><span class="cov8" title="1">{
+                techs = append(techs, detectedTech{"Express", "Backend Framework", headers["x-powered-by"], 95})
+        }</span>
+        <span class="cov8" title="1">if strings.Contains(xPoweredBy, "php") </span><span class="cov0" title="0">{
+                techs = append(techs, detectedTech{"PHP", "Programming Language", headers["x-powered-by"], 95})
+        }</span>
+        <span class="cov8" title="1">if strings.Contains(body, "__NEXT_DATA__") || strings.Contains(body, "/_next/") </span><span class="cov8" title="1">{
+                techs = append(techs, detectedTech{"Next.js", "JavaScript Framework", "", 90})
+        }</span>
+        <span class="cov8" title="1">if strings.Contains(strings.ToLower(body), "react") || strings.Contains(body, "data-reactroot") </span><span class="cov8" title="1">{
+                techs = append(techs, detectedTech{"React", "JavaScript Framework", "", 80})
+        }</span>
+        <span class="cov8" title="1">if strings.Contains(body, "wp-content") || strings.Contains(strings.ToLower(metaTags["generator"]), "wordpress") </span><span class="cov8" title="1">{
+                techs = append(techs, detectedTech{"WordPress", "CMS", metaTags["generator"], 95})
+        }</span>
+
+        <span class="cov8" title="1">payload := map[string]interface{}{
+                "domain":       asset.Name,
+                "technologies": techs,
+                "headers":      headers,
+                "meta_tags":    metaTags,
+                "created_at":   time.Now().UTC(),
+        }
+
+        if err := s.svc.saveResult(job, "tech", payload); err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">return 1, nil</span>
+}</pre>
+		
+		<pre class="file" id="file14" style="display: none">package postgres
+
+import (
+        "database/sql"
+        "fmt"
+
+        "mini-asm/internal/config"
+        "mini-asm/internal/model"
+
+        "github.com/lib/pq" // PostgreSQL driver
+)
+
+// PostgresStorage implements the Storage interface using PostgreSQL
+// This is a concrete implementation that can be swapped with MemoryStorage
+type PostgresStorage struct {
+        db *sql.DB
+}
+
+// NewPostgresStorage creates a new PostgreSQL storage instance
+func NewPostgresStorage(db *sql.DB) *PostgresStorage <span class="cov0" title="0">{
+        return &amp;PostgresStorage{db: db}
+}</span>
+
+func NewPostgresStorageFromConfig(config *config.PostgresConfig) (*PostgresStorage, error) <span class="cov0" title="0">{
+        connStr := fmt.Sprintf(
+                "host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+                config.DBHost,
+                config.DBPort,
+                config.DBUser,
+                config.DBPassword,
+                config.DBName,
+        )
+        db, err := sql.Open("postgres", connStr)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to connect to database: %w", err)
+        }</span>
+
+        // Verify connection
+        <span class="cov0" title="0">if err := db.Ping(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to ping database: %w", err)
+        }</span>
+        <span class="cov0" title="0">return &amp;PostgresStorage{db: db}, nil</span>
+}
+
+// Create inserts a new asset into the database
+func (p *PostgresStorage) Create(asset *model.Asset) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO assets (id, name, type, status, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+        `
+
+        _, err := p.db.Exec(
+                query,
+                asset.ID,
+                asset.Name,
+                asset.Type,
+                asset.Status,
+                asset.CreatedAt,
+                asset.UpdatedAt,
+        )
+
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create asset: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// GetAll retrieves all assets from the database
+func (p *PostgresStorage) GetAll() ([]*model.Asset, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, name, type, status, created_at, updated_at
+                FROM assets
+                ORDER BY created_at DESC
+        `
+
+        rows, err := p.db.Query(query)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to query assets: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var assets []*model.Asset
+        for rows.Next() </span><span class="cov0" title="0">{
+                asset := &amp;model.Asset{}
+                err := rows.Scan(
+                        &amp;asset.ID,
+                        &amp;asset.Name,
+                        &amp;asset.Type,
+                        &amp;asset.Status,
+                        &amp;asset.CreatedAt,
+                        &amp;asset.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan asset: %w", err)
+                }</span>
+                <span class="cov0" title="0">assets = append(assets, asset)</span>
+        }
+
+        <span class="cov0" title="0">if err = rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating rows: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return assets, nil</span>
+}
+
+// GetByID retrieves a single asset by its ID
+func (p *PostgresStorage) GetByID(id string) (*model.Asset, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, name, type, status, created_at, updated_at
+                FROM assets
+                WHERE id = $1
+        `
+
+        asset := &amp;model.Asset{}
+        err := p.db.QueryRow(query, id).Scan(
+                &amp;asset.ID,
+                &amp;asset.Name,
+                &amp;asset.Type,
+                &amp;asset.Status,
+                &amp;asset.CreatedAt,
+                &amp;asset.UpdatedAt,
+        )
+
+        if err == sql.ErrNoRows </span><span class="cov0" title="0">{
+                return nil, model.ErrNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get asset: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return asset, nil</span>
+}
+
+// Update modifies an existing asset in the database
+func (p *PostgresStorage) Update(id string, asset *model.Asset) error <span class="cov0" title="0">{
+        query := `
+                UPDATE assets
+                SET name = $1, type = $2, status = $3, updated_at = $4
+                WHERE id = $5
+        `
+
+        result, err := p.db.Exec(
+                query,
+                asset.Name,
+                asset.Type,
+                asset.Status,
+                asset.UpdatedAt,
+                id,
+        )
+
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update asset: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">rows, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get affected rows: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if rows == 0 </span><span class="cov0" title="0">{
+                return model.ErrNotFound
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// Delete removes an asset from the database
+func (p *PostgresStorage) Delete(id string) error <span class="cov0" title="0">{
+        query := `DELETE FROM assets WHERE id = $1`
+
+        result, err := p.db.Exec(query, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete asset: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">rows, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get affected rows: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if rows == 0 </span><span class="cov0" title="0">{
+                return model.ErrNotFound
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// Filter returns assets matching the given criteria
+func (p *PostgresStorage) Filter(assetType, status string) ([]*model.Asset, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, name, type, status, created_at, updated_at
+                FROM assets
+                WHERE 1=1
+        `
+
+        var args []interface{}
+        argCount := 1
+
+        if assetType != "" </span><span class="cov0" title="0">{
+                query += fmt.Sprintf(" AND type = $%d", argCount)
+                args = append(args, assetType)
+                argCount++
+        }</span>
+
+        <span class="cov0" title="0">if status != "" </span><span class="cov0" title="0">{
+                query += fmt.Sprintf(" AND status = $%d", argCount)
+                args = append(args, status)
+                argCount++
+        }</span>
+
+        <span class="cov0" title="0">query += " ORDER BY created_at DESC"
+
+        rows, err := p.db.Query(query, args...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to filter assets: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var assets []*model.Asset
+        for rows.Next() </span><span class="cov0" title="0">{
+                asset := &amp;model.Asset{}
+                err := rows.Scan(
+                        &amp;asset.ID,
+                        &amp;asset.Name,
+                        &amp;asset.Type,
+                        &amp;asset.Status,
+                        &amp;asset.CreatedAt,
+                        &amp;asset.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan asset: %w", err)
+                }</span>
+                <span class="cov0" title="0">assets = append(assets, asset)</span>
+        }
+
+        <span class="cov0" title="0">if err = rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating rows: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return assets, nil</span>
+}
+
+// Search finds assets by partial name match
+func (p *PostgresStorage) Search(query string) ([]*model.Asset, error) <span class="cov0" title="0">{
+
+        sqlQuery := `
+                SELECT id, name, type, status, created_at, updated_at
+                FROM assets
+                WHERE name ILIKE $1
+                LIMIT 100
+        `
+
+        searchPattern := "%" + query + "%"
+
+        rows, err := p.db.Query(sqlQuery, searchPattern)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to search assets: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var assets []*model.Asset
+
+        for rows.Next() </span><span class="cov0" title="0">{
+                asset := &amp;model.Asset{}
+
+                err := rows.Scan(
+                        &amp;asset.ID,
+                        &amp;asset.Name,
+                        &amp;asset.Type,
+                        &amp;asset.Status,
+                        &amp;asset.CreatedAt,
+                        &amp;asset.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan asset: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">assets = append(assets, asset)</span>
+        }
+
+        <span class="cov0" title="0">return assets, nil</span>
+}
+
+// GetStats returns aggregated statistics about assets
+func (p *PostgresStorage) GetStats() (*model.AssetStats, error) <span class="cov0" title="0">{
+        stats := &amp;model.AssetStats{
+                ByType:   make(map[string]int),
+                ByStatus: make(map[string]int),
+        }
+
+        err := p.db.QueryRow(`SELECT COUNT(*) FROM assets`).Scan(&amp;stats.Total)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to count total assets: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">typeRows, err := p.db.Query(`
+                SELECT type, COUNT(*)
+                FROM assets
+                GROUP BY type
+        `)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to group assets by type: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer typeRows.Close()
+
+        for typeRows.Next() </span><span class="cov0" title="0">{
+                var assetType string
+                var count int
+                if err := typeRows.Scan(&amp;assetType, &amp;count); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan type stats: %w", err)
+                }</span>
+                <span class="cov0" title="0">stats.ByType[assetType] = count</span>
+        }
+
+        <span class="cov0" title="0">if err := typeRows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating type stats: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">statusRows, err := p.db.Query(`
+                SELECT status, COUNT(*)
+                FROM assets
+                GROUP BY status
+        `)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to group assets by status: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer statusRows.Close()
+
+        for statusRows.Next() </span><span class="cov0" title="0">{
+                var status string
+                var count int
+                if err := statusRows.Scan(&amp;status, &amp;count); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan status stats: %w", err)
+                }</span>
+                <span class="cov0" title="0">stats.ByStatus[status] = count</span>
+        }
+
+        <span class="cov0" title="0">if err := statusRows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating status stats: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return stats, nil</span>
+}
+
+// Count returns the total number of assets matching criteria
+func (p *PostgresStorage) Count(assetType, status string) (*model.AssetCountResponse, error) <span class="cov0" title="0">{
+        query := `
+                SELECT COUNT(*)
+                FROM assets
+                WHERE 1=1
+        `
+
+        var args []interface{}
+        argCount := 1
+
+        if assetType != "" </span><span class="cov0" title="0">{
+                query += fmt.Sprintf(" AND type = $%d", argCount)
+                args = append(args, assetType)
+                argCount++
+        }</span>
+
+        <span class="cov0" title="0">if status != "" </span><span class="cov0" title="0">{
+                query += fmt.Sprintf(" AND status = $%d", argCount)
+                args = append(args, status)
+                argCount++
+        }</span>
+
+        <span class="cov0" title="0">var count int
+        if err := p.db.QueryRow(query, args...).Scan(&amp;count); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to count assets: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;model.AssetCountResponse{
+                Count: count,
+                Filters: model.AssetCountFilters{
+                        Type:   assetType,
+                        Status: status,
+                },
+        }, nil</span>
+}        
+
+func (p *PostgresStorage) BatchCreate(assets []*model.Asset) ([]string, error) <span class="cov0" title="0">{
+        tx, err := p.db.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to begin transaction: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov0" title="0">{
+                        _ = tx.Rollback()
+                }</span>
+        }()
+
+        <span class="cov0" title="0">query := `
+                INSERT INTO assets (id, name, type, status, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+        `
+
+        ids := make([]string, 0, len(assets))
+
+        for _, asset := range assets </span><span class="cov0" title="0">{
+                _, err = tx.Exec(
+                        query,
+                        asset.ID,
+                        asset.Name,
+                        asset.Type,
+                        asset.Status,
+                        asset.CreatedAt,
+                        asset.UpdatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to insert asset %s: %w", asset.Name, err)
+                }</span>
+
+                <span class="cov0" title="0">ids = append(ids, asset.ID)</span>
+        }
+
+        <span class="cov0" title="0">if err = tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to commit transaction: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return ids, nil</span>
+}
+
+func (p *PostgresStorage) BatchDelete(ids []string) (*model.BatchDeleteAssetsResponse, error) <span class="cov0" title="0">{
+        result, err := p.db.Exec(`DELETE FROM assets WHERE id = ANY($1::uuid[])`, pq.Array(ids))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to batch delete assets: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">rows, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get affected rows: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">deleted := int(rows)
+
+        return &amp;model.BatchDeleteAssetsResponse{
+                Deleted:  deleted,
+                NotFound: len(ids) - deleted,
+        }, nil</span>
+}
+
+func (p *PostgresStorage) CreateScanJob(job *model.ScanJob) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO scan_jobs (id, asset_id, scan_type, status, started_at, ended_at, error, results, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `
+
+        _, err := p.db.Exec(
+                query,
+                job.ID,
+                job.AssetID,
+                job.ScanType,
+                job.Status,
+                job.StartedAt,
+                job.EndedAt,
+                job.Error,
+                job.Results,
+                job.CreatedAt,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create scan job: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (p *PostgresStorage) GetScanJob(id string) (*model.ScanJob, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, asset_id, scan_type, status, started_at, ended_at, error, results, created_at
+                FROM scan_jobs
+                WHERE id = $1
+        `
+
+        job := &amp;model.ScanJob{}
+        err := p.db.QueryRow(query, id).Scan(
+                &amp;job.ID,
+                &amp;job.AssetID,
+                &amp;job.ScanType,
+                &amp;job.Status,
+                &amp;job.StartedAt,
+                &amp;job.EndedAt,
+                &amp;job.Error,
+                &amp;job.Results,
+                &amp;job.CreatedAt,
+        )
+        if err == sql.ErrNoRows </span><span class="cov0" title="0">{
+                return nil, model.ErrNotFound
+        }</span>
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get scan job: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return job, nil</span>
+}
+
+func (p *PostgresStorage) UpdateScanJob(job *model.ScanJob) error <span class="cov0" title="0">{
+        query := `
+                UPDATE scan_jobs
+                SET status = $1, ended_at = $2, error = $3, results = $4
+                WHERE id = $5
+        `
+
+        result, err := p.db.Exec(
+                query,
+                job.Status,
+                job.EndedAt,
+                job.Error,
+                job.Results,
+                job.ID,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update scan job: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">rows, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get affected rows: %w", err)
+        }</span>
+        <span class="cov0" title="0">if rows == 0 </span><span class="cov0" title="0">{
+                return model.ErrNotFound
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (p *PostgresStorage) CreateScanResult(resultItem *model.ScanResult) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO scan_results (id, scan_job_id, asset_id, result_type, data, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+        `
+
+        _, err := p.db.Exec(
+                query,
+                resultItem.ID,
+                resultItem.ScanJobID,
+                resultItem.AssetID,
+                resultItem.ResultType,
+                resultItem.Data,
+                resultItem.CreatedAt,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create scan result: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (p *PostgresStorage) ListScanResultsByJob(scanJobID string) ([]*model.ScanResult, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, scan_job_id, asset_id, result_type, data, created_at
+                FROM scan_results
+                WHERE scan_job_id = $1
+                ORDER BY created_at ASC
+        `
+
+        rows, err := p.db.Query(query, scanJobID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to query scan results: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        results := make([]*model.ScanResult, 0)
+        for rows.Next() </span><span class="cov0" title="0">{
+                item := &amp;model.ScanResult{}
+                var rawData []byte
+
+                if err := rows.Scan(
+                        &amp;item.ID,
+                        &amp;item.ScanJobID,
+                        &amp;item.AssetID,
+                        &amp;item.ResultType,
+                        &amp;rawData,
+                        &amp;item.CreatedAt,
+                ); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan scan result: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">item.Data = rawData
+                results = append(results, item)</span>
+        }
+
+        <span class="cov0" title="0">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed while iterating scan results: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return results, nil</span>
+}
+
+func (p *PostgresStorage) ListScanJobsByAsset(assetID string) ([]*model.ScanJob, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, asset_id, scan_type, status, started_at, ended_at, error, results, created_at
+                FROM scan_jobs
+                WHERE asset_id = $1
+                ORDER BY created_at DESC
+        `
+        rows, err := p.db.Query(query, assetID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to query scan jobs by asset: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var jobs []*model.ScanJob
+        for rows.Next() </span><span class="cov0" title="0">{
+                job := &amp;model.ScanJob{}
+                if err := rows.Scan(
+                        &amp;job.ID, &amp;job.AssetID, &amp;job.ScanType, &amp;job.Status,
+                        &amp;job.StartedAt, &amp;job.EndedAt, &amp;job.Error, &amp;job.Results, &amp;job.CreatedAt,
+                ); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan scan job: %w", err)
+                }</span>
+                <span class="cov0" title="0">jobs = append(jobs, job)</span>
+        }
+        <span class="cov0" title="0">return jobs, rows.Err()</span>
+}
+
+func (p *PostgresStorage) ListScanResultsByAsset(assetID string) ([]*model.ScanResult, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, scan_job_id, asset_id, result_type, data, created_at
+                FROM scan_results
+                WHERE asset_id = $1
+                ORDER BY created_at DESC
+        `
+        rows, err := p.db.Query(query, assetID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to query scan results by asset: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var results []*model.ScanResult
+        for rows.Next() </span><span class="cov0" title="0">{
+                item := &amp;model.ScanResult{}
+                var rawData []byte
+                if err := rows.Scan(
+                        &amp;item.ID, &amp;item.ScanJobID, &amp;item.AssetID, &amp;item.ResultType, &amp;rawData, &amp;item.CreatedAt,
+                ); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan scan result: %w", err)
+                }</span>
+                <span class="cov0" title="0">item.Data = rawData
+                results = append(results, item)</span>
+        }
+        <span class="cov0" title="0">return results, rows.Err()</span>
+}
+
+func (p *PostgresStorage) ListScanResultsByAssetAndTypes(assetID string, resultTypes []string) ([]*model.ScanResult, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, scan_job_id, asset_id, result_type, data, created_at
+                FROM scan_results
+                WHERE asset_id = $1
+                  AND result_type = ANY($2)
+                ORDER BY created_at DESC
+        `
+
+        rows, err := p.db.Query(query, assetID, pq.Array(resultTypes))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to query scan results by asset and type: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var results []*model.ScanResult
+        for rows.Next() </span><span class="cov0" title="0">{
+                result := &amp;model.ScanResult{}
+                var rawData []byte
+
+                err := rows.Scan(
+                        &amp;result.ID,
+                        &amp;result.ScanJobID,
+                        &amp;result.AssetID,
+                        &amp;result.ResultType,
+                        &amp;rawData,
+                        &amp;result.CreatedAt,
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan filtered scan result: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">result.Data = rawData
+                results = append(results, result)</span>
+        }
+
+        <span class="cov0" title="0">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating filtered scan results rows: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return results, nil</span>
+}</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
